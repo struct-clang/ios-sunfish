@@ -46,11 +46,13 @@ All of this is reproducible with `scripts/build.sh` and
 | Full payload build | **yes**, 10 segments, entry `0xfffffe0007490488`, `payload.bin` 16628560 bytes SHA256 `e77d29244b469c165bec298728ba66c74fb76c54a90c935710c228cb96f6bac2`; boot image SHA256 `2e2880...` (see below); every `check-artifacts.sh` line passes |
 | Reproducible full build | **yes**: two consecutive `scripts/build.sh` runs produced byte-identical ADT, payload and 64 MiB boot image (`2e2880...`). `tools/mkadt.py` now uses a fixed 64-byte `random-seed` by default (`--random-seed` still exists). This satisfies H7 offline |
 | FTM5 sense-on fix | **yes**: re-reading vendor `ftsCore.c` showed `{0xa0, 0x00, 0xff}` is sense-on and `{0xa0, 0x00, 0x00}` is **sense-off**; `0082` and the rebuilt binary use `0xff` |
+| CI kernel build | **yes**: run `39837537514` (macOS-15, commit `40445c4`) passed in 7m43s. Artifact `kernel.development.sweet` 17240048 bytes SHA256 `a0b7caa06f80bbac595f7e51ca451446f1157972ed2d68f7afe3a5cd694c0c3e`; contains `google,sunfish`, all FTM5 strings, `mounting dirty non-journaled root read-write` and `a0 00 ff`. The hash differs from the local build because paths/CTF differ; both are from the same patched source |
 
 The kernel was built locally with `scripts/build-kernel-local.sh` (same
-pinned dxb revision and patches as CI). This removes the macOS-14 CI runner
-from the critical path. The queued run `39827421032` was on the deprecated
-macOS-14 image; the workflow now targets `macos-15`.
+pinned dxb revision and patches as CI). This removes the CI runner from the
+critical path. CI run `39835553837` first proved the `macos-15` workflow;
+run `39837537514` built the touch-fixed kernel. The old queued
+`39827421032` is irrelevant.
 
 Artifact hashes from the offline build (payload-less diagnostic shim, scratch DTB):
 
@@ -93,7 +95,8 @@ needed.
 
 1. **Kernel build: solved.** Xcode 16.2 builds xnu-8796 with the pinned dxb
    revision, the extracted 13.5 KDK and `xnu/patches/`; the resulting kernel
-   is on disk. CI is optional and now uses `macos-15`; the old run
+   is on disk. CI run `39837537514` also passed on `macos-15` (artifact
+   `a0b7caa0...`), so CI is optional and no longer a blocker. The old run
    `39827421032` is irrelevant.
 2. **Hardware.** The boot chain and diagnostic display run on the phone, and
    the full XNU payload image is built and offline-checked. The phone is

@@ -133,8 +133,11 @@ has a stop condition.
   build had a different ADT hash because `mkadt.py` called `os.urandom(64)`
   for `/chosen/random-seed`; that is the bug H7 caught. The local kernel hash
   is `e24fe3778f14b809d4a69465246f64f8accbbd55d21c021dbffbff92b2e8316c`.
-  A CI rerun on the final commit is optional because the local build is now
-  first-class; record its run ID if used.
+  CI run `39837537514` (macOS-15, commit `40445c4`) passed and produced
+  `kernel.development.sweet` SHA256
+  `a0b7caa06f80bbac595f7e51ca451446f1157972ed2d68f7afe3a5cd694c0c3e`; its
+  strings were checked manually. It is not used as the payload kernel, so
+  the local hashes above are authoritative.
 - **Status: PASS (local, offline, 2026-10-23).**
 
 ### H8 — Safety: no unintended partition writes
@@ -144,7 +147,9 @@ has a stop condition.
   H1/H3 without `--flash-root`.
 - Pass criteria: only `fastboot boot` is used; `boot`, `dtbo`, `recovery`,
   `modem`, `persist`, `userdata` are unchanged. `--flash-root` is the only
-  path that writes, and it requires the typed confirmation.
+  path that writes, requires the typed confirmation, refuses a diagnostic
+  image, and verifies that the image ramdisk is byte-identical to the payload
+  it checks.
 - Evidence: `fastboot getvar all` before/after (hashes of the unchanged
   partitions are not readable, so record the `getvar` dump and the commands
   used).
