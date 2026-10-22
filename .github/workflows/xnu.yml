@@ -135,7 +135,7 @@ jobs:
           strings -a "$k" > kernel-strings.txt
           missing=0
           # 0082 (sunfish board support), 0083 (Adreno bring-up probes)
-          for s in 'google,sunfish' 'SWEET TOUCH: selected ST FTM5' 'SWEET TOUCH: PM6150 GPIO4' 'SWEET SPMI: write' \
+          for s in 'google,sunfish' 'SWEET TOUCH: selected ST FTM5' 'SWEET TOUCH: FTM5 ACK on bit-banged I2C' 'SWEET TOUCH: PM6150 GPIO4' 'SWEET SPMI: write' \
               'SWEET GPU: step %u: done'; do
             if grep -qF "$s" kernel-strings.txt; then echo "ok:      $s"; else echo "MISSING: $s"; missing=1; fi
           done
