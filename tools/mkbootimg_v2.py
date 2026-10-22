@@ -40,7 +40,7 @@ def encode_os_version(text):
     if len(parts) != 3 or any(p < 0 or p > 127 for p in parts):
         sys.exit(f"error: --os_version wants A.B.C (0-127), got {text!r}")
     a, b, c = parts
-    return (a << 25) | (b << 18) | (c << 11) | 0
+    return (a << 25) | (b << 18) | (c << 11)
 
 
 def encode_patch_level(text):
@@ -101,6 +101,14 @@ def main():
     ident.update(struct.pack("<I", len(kernel)))
     ident.update(ramdisk)
     ident.update(struct.pack("<I", len(ramdisk)))
+    # Empty second stage and recovery_dtbo, then the DTB. The stock Pixel
+    # id only matches when all five are included.
+    ident.update(struct.pack("<I", 0))
+    ident.update(struct.pack("<I", 0))
+    ident.update(dtb)
+    ident.update(struct.pack("<I", len(dtb)))
+
+    os_version = encode_os_version(args.os_version) | encode_patch_level(args.os_patch_level)
 
     hdr = bytearray(HEADER_V2_SIZE)
     struct.pack_into("<8s10I", hdr, 0, b"ANDROID!",
@@ -108,7 +116,7 @@ def main():
                      len(ramdisk), args.ramdisk_offset,
                      0, 0,  # second stage
                      args.tags_offset, args.pagesize,
-                     2, encode_os_version(args.os_version))
+                     2, os_version)
     struct.pack_into("<16s512s32s1024s", hdr, 48,
                      args.name.encode(), cmdline, ident.digest(), extra)
     struct.pack_into("<IQI", hdr, 1632, 0, 0, HEADER_V2_SIZE)  # recovery_dtbo

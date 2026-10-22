@@ -85,6 +85,29 @@ PY
 cmp -s "$tmp/dtb" "$DTB" || fail "DTB in the boot image differs from $DTB"
 ok "DTB matches $DTB ($(stat -c %s "$DTB" 2>/dev/null || stat -f %z "$DTB") bytes)"
 
+if [ "$DEVICE" = sunfish ]; then
+	# Pixel ABL rejects `fastboot boot` without an AVB footer. The build
+	# writes an unsigned (algorithm NONE) hash footer, matching stock.
+	python3 - "$IMAGE" <<'PY' || exit 1
+import sys
+b = open(sys.argv[1], 'rb').read()
+if len(b) < 64 or b[-64:-60] != b'AVBf':
+    sys.exit('FAIL: no AVB footer; the Pixel bootloader will reject this image')
+print(f'ok:   AVB footer present, image {len(b)} bytes')
+PY
+	[ "$(stat -c %s "$IMAGE" 2>/dev/null || stat -f %z "$IMAGE")" = "${BOOT_PARTITION_SIZE:-67108864}" ] \
+		|| fail "boot image is not padded to the boot partition size (${BOOT_PARTITION_SIZE:-67108864})"
+	avbdir=$(mktemp -d)
+	ln -s "$(cd "$(dirname "$IMAGE")" && pwd)/$(basename "$IMAGE")" "$avbdir/boot.img"
+	if ! python3 tools/avbtool.py verify_image --image "$avbdir/boot.img" >"$avbdir/verify.log" 2>&1; then
+		cat "$avbdir/verify.log" >&2
+		rm -rf "$avbdir"
+		fail "AVB verification failed"
+	fi
+	rm -rf "$avbdir"
+	ok "AVB vbmeta and hash descriptor verify (algorithm NONE)"
+fi
+
 if [ "$SHIM_ONLY" = 0 ] && [ -n "$ADT" ]; then
 	[ -f "$ADT" ] || fail "ADT $ADT is missing"
 	python3 - "$ADT" "$DEVICE" <<'PY' || exit 1

@@ -1,5 +1,15 @@
 # iOS 16 on sweet (Redmi Note 10 Pro, SM7150) - working notes
 
+## >>> SUNFISH FASTBOOT/AVB DEBUG, 2026-10-22 late (read first) <<<
+
+**State: phone connected and unlocked. Stock and repacked-stock boot images are accepted by `fastboot boot`; every shim image is still rejected with `Error verifying the received boot.img: Unsupported`. No shim pixels yet. Hardware tests remain NOT RUN.**
+
+- **Packer bugs found and fixed** (`tools/mkbootimg_v2.py`): (1) `--os_patch_level` was parsed but never encoded, so the header said `os_version=0x22000000` instead of stock `0x220001aa`; (2) the header `id` omitted the empty second/recovery_dtbo length fields and the DTB. After both fixes, repacking the stock kernel/ramdisk/DTB with the stock cmdline, salt and AVB props reproduces `/Users/unsign3d/Downloads/boot.img` **byte-for-byte except one byte** (avbtool release string `1.3.0` vs stock `1.4.0`), and that repacked image **boots**.
+- **Pixel AVB**: the stock LineageOS boot.img ends in an AVB hash footer with `Algorithm: NONE` (no signature; auth block 0), partition size 64 MiB, salt `479d...f58b`, props `com.android.build.boot.os_version=17` and a LineageOS fingerprint. `shim/build.sh` now adds the same kind of footer for `DEVICE=sunfish` (`BOOT_PARTITION_SIZE=67108864`, fixed salt `4fb1...c838`, `--algorithm NONE`) and pads the image to 64 MiB. `tools/avbtool.py` (AOSP, MIT, v1.3.0, SHA256 `e5a664...49b`) is vendored; `scripts/check-artifacts.sh` verifies the footer, size and vbmeta/hash descriptor.
+- **Rejection bisect**: stock image → accepted; our packer + stock payloads + AVB footer → accepted (boots Android); shim raw Image → rejected; shim **legacy** LZ4 (`02 21 4c 18`) → rejected; shim **frame** LZ4 (`04 22 4d 18`, same as stock) + stock ramdisk + stock cmdline + stock DTB → **built but not yet tried** (`/tmp/test-frame-shim.img`); same plus the stock AVB props → `/tmp/test-frame-props.img`, also not tried. The stock kernel is LZ4 **frame**, not raw and not legacy.
+- **CI**: run `39827421032` (fork `struct-clang/ios-sunfish`, branch `claude/ios-sunfish-port-sunfish-uvpkdw`) was **cancelled after 15m3s**: "The job was not acquired by Runner of type hosted" (macOS arm64 capacity). No kernel artifact; re-dispatch later.
+- **Next**: put the phone in fastboot and `fastboot boot /tmp/test-frame-props.img` (or `test-frame-shim.img`). If accepted, integrate frame-LZ4 compression into `shim/build.sh` for sunfish and boot the diagnostic shim; if rejected, the shim kernel/header itself is what ABL refuses and the next isolation is a stock kernel + our empty ramdisk vs a shim kernel with a minimal stock-like header. Then commit the packer/AVB/frame changes and update the hashes in `PORTING_STATUS.md`.
+
 ## >>> SUNFISH TOOLING + TOUCH/PATCH REWORK, 2026-10-22 (read first) <<<
 
 **State: committed as `af1635c` (rebased onto `b9d1154`) on local branch `sunfish-port`; nothing pushed, no CI run, no hardware test.** Physical phone was not connected (`fastboot devices`/`adb devices` empty).

@@ -111,13 +111,27 @@ else
 fi
 [ -f "$DTB" ] || { echo "error: stock DTB $DTB missing (see README: unpack the stock boot.img)" >&2; exit 1; }
 # The boot image os_version/os_patch_level are informational (AVB rollback
-# lives in vbmeta, not here); keep them newer than the installed Android build.
+# lives in vbmeta, not here); use the values from the phone's own boot.img.
 # shellcheck disable=SC2086 # MKBOOTIMG_LAYOUT is a list of arguments
 python3 "$ROOT/tools/mkbootimg_v2.py" --header_version 2 \
 	--kernel out/Image --ramdisk out/ramdisk.bin --dtb "$DTB" \
 	$MKBOOTIMG_LAYOUT --pagesize 4096 \
-	--os_version 17.0.0 --os_patch_level 2035-06 \
+	--os_version 17.0.0 --os_patch_level 2026-10 \
 	--cmdline "console=null" -o out/shim-boot.img
+if [ "$DEVICE" = sunfish ]; then
+	# The Pixel ABL refuses to boot an image without an AVB footer, even in
+	# the unlocked state ("Error verifying the received boot.img:
+	# Unsupported"). The stock LineageOS boot.img uses an unsigned footer
+	# (algorithm NONE), so do the same; no Google key is needed. The image
+	# is padded to the boot partition size, as avbtool expects.
+	BOOT_PARTITION_SIZE=${BOOT_PARTITION_SIZE:-67108864}
+	AVB_SALT=${AVB_SALT:-4fb1e4d36a10bec75e63f86e57ddf58d92394b26b9e1e1cd3e0e341aad1dc838}
+	python3 "$ROOT/tools/avbtool.py" add_hash_footer \
+		--image out/shim-boot.img --partition_name boot \
+		--partition_size "$BOOT_PARTITION_SIZE" \
+		--algorithm NONE --salt "$AVB_SALT"
+	printf 'AVB footer       algorithm NONE, partition %s\n' "$BOOT_PARTITION_SIZE"
+fi
 # Prove the header we wrote matches the stock field layout.
 python3 "$ROOT/tools/unpack_bootv2.py" out/shim-boot.img out/boot-check >/dev/null
 for key in kernel_addr ramdisk_addr tags_addr dtb_addr page_size header_version; do
