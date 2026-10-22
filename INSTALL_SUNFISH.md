@@ -200,17 +200,15 @@ IPSW, 16 GiB case-sensitive journaled HFS+ volume, `tools/mkiosroot.sh` +
 - **Linux VM (faithful path):** `brew install lima qemu`, start a VM, run the
   documented Linux commands there, and let the shared directory carry the
   DMGs in and `ios16-root.simg` out.
-- **Native macOS (untested end to end):** mount the three DMGs from the IPSW
-  with `hdiutil attach`, create the partitionless volume with
-  `hdiutil create -size 16g -fs HFSX -volname iOSRoot -layout NONE -type
-  SPARSE`, mount it, enable journaling (`sudo diskutil enableJournal
-  /Volumes/iOSRoot`), populate it as root with `sudo rsync -aH --numeric-ids`
-  following `tools/mkiosroot.sh`, run `sudo python3
-  tools/sweet-root-tweaks.py /Volumes/iOSRoot`, detach, convert with
-  `hdiutil convert -format UDTO`, and finally `python3 tools/img2simg.py
-  ios16-root.img ios16-root.simg --verify`. The unknowns are the APFS/cryptex
-  DMG mounts and LZBITMAP decompression under macOS; check the image mounts
-  and that `/System/Library/...` files read uncompressed before flashing.
+- **Native macOS (experimental):** run
+  `tools/mkiosroot-macos.sh OS.dmg SystemOS.dmg AppOS.dmg ios16-root.img 16G`
+  from a terminal so `sudo` can prompt. It mounts the DMGs with `hdiutil`,
+  builds the partitionless HFSX volume, copies as root, converts with
+  `hdiutil convert -format UDTO` and runs `tools/img2simg.py`. It is tested
+  against synthetic images; the real unknowns are the APFS/cryptex DMG mounts
+  and LZBITMAP decompression. Check that `/System` files read uncompressed and
+  that the volume has no partition map (`HX` at offset 1024) before flashing.
+  If it fails, use the Lima VM path.
 
 Then:
 

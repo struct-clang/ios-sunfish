@@ -114,11 +114,18 @@ img2simg ios16-root.img ios16-root.simg
 ```
 
 Without a Linux host, either install one in a VM (`brew install lima qemu`) and
-run the same commands there, or try the **untested** native macOS path in
-`INSTALL_SUNFISH.md` §6: `hdiutil create -layout NONE -fs HFSX`, `rsync -aH
---numeric-ids` as root, `hdiutil convert -format UDTO`, then
-`python3 tools/img2simg.py ios16-root.img ios16-root.simg --verify` in place
-of the missing `img2simg`.
+run the same commands there, or on macOS use:
+
+```sh
+tools/mkiosroot-macos.sh OS.dmg SystemOS.dmg AppOS.dmg ios16-root.img 16G
+```
+
+`tools/mkiosroot-macos.sh` is the experimental macOS counterpart (same steps:
+`hdiutil` mounts, partitionless HFSX volume, `rsync -aH --numeric-ids` as root,
+`hdiutil convert -format UDTO`, then `tools/img2simg.py`). It is tested against
+synthetic images; whether macOS mounts the real cryptex DMGs and decompresses
+LZBITMAP files is only confirmed once the IPSW is present. If it fails, use the
+Lima VM path.
 
 `mkiosroot.sh` merges the OS volume and both cryptexes into one case-sensitive journaled HFS+ volume. `sweet-root-tweaks.py` applies the bring-up changes; its header explains each one. The device tree builder also needs `/product` from the real iPhone X device tree:
 
