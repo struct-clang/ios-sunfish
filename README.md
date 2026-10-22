@@ -75,6 +75,13 @@ gh workflow run xnu.yml -R YOU/ios-sunfish
 gh run download RUN_ID -R YOU/ios-sunfish -n xnu-kernel -D xnu/out
 ```
 
+Xcode 16.2 also builds the same kernel locally; this avoids the CI queue and
+does not need `sudo` (the 13.5 KDK is expanded into `.build/kernel`):
+
+```sh
+scripts/build-kernel-local.sh
+```
+
 The output is `kernel.development.sweet`. The same binary is used for both phones.
 
 ### 2. Build the iOS root image
@@ -162,7 +169,7 @@ With `sweetusb=2` the log also streams live over USB (`tools/sweet-usbnet.sh log
 | `shim/` | Bare-metal boot shim packed as an Android boot.img v2 (`DEVICE=sweet` or `sunfish`); `disp.c` is the command-mode display refresh |
 | `xnu/patches/` | The XNU patch series, applied in order by CI; `0082` is the sunfish board support |
 | `.github/workflows/xnu.yml` | Kernel CI build |
-| `scripts/` | `setup-build-env.sh`, `build.sh`, `check-artifacts.sh`, `flash-sunfish.sh` |
+| `scripts/` | `setup-build-env.sh`, `build-kernel-local.sh`, `build.sh`, `check-artifacts.sh`, `flash-sunfish.sh` |
 | `tools/mkbootimg_v2.py`, `tools/mknewc.py` | Self-contained boot image v2 packer and deterministic cpio writer |
 | `tools/mkadt.py` | Generates the Apple Device Tree (`--device sunfish`) |
 | `tools/mkpayload.py` | Packs kernel + ADT + boot-args into the shim payload |

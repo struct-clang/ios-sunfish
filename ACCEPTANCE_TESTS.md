@@ -52,7 +52,9 @@ has a stop condition.
 
 ### H3 — XNU boots from the payload and reaches UFS/launchd
 
-- Prerequisites: H1/H2 PASS; CI kernel `xnu/out/kernel.development.sweet`;
+- Prerequisites: H1/H2 PASS; kernel built locally with
+  `scripts/build-kernel-local.sh` (or downloaded from CI) at
+  `xnu/out/kernel.development.sweet`; full image built with
   `scripts/build.sh --kernel ...`; TWRP (or `sweetusb=2`) for the log.
 - Procedure: boot the full image (still `fastboot boot`), wait up to 10 min,
   then pull the persistent log.
@@ -114,8 +116,9 @@ has a stop condition.
   the run ID. The ADT/payload/shim have no timestamps and the cpio is
   deterministic.
 - Evidence: `shasum -a 256` output for both runs and the CI run ID.
-- **Status: NOT RUN (local build with the real kernel not done; the payload-less
-  shim was built twice with the same hash).**
+- **Status: NOT RUN (the local kernel and full payload are built; repeating
+  the full payload build twice and comparing hashes is still pending, as is a
+  fresh CI run. The payload-less shim was built twice with the same hash).**
 
 ### H8 — Safety: no unintended partition writes
 
