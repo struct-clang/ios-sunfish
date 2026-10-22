@@ -135,11 +135,35 @@ static uint32_t scsi(uint8_t lun, const uint8_t *cdb, unsigned cdb_len, void *bu
 	return *status_out ? 4 : 0;
 }
 
+/* Sense key 2 (NOT READY): the unit may need START STOP UNIT first. */
+static int
+sense_not_ready(void)
+{
+	uint32_t len = (uint32_t)ucd.resp[32] << 8 | ucd.resp[33];
+	return ucd.resp[7] == 2 && len >= 14 && (ucd.resp[34 + 2] & 0xfu) == 2;
+}
+
+/* Decode the sense data carried in the response UPIU. */
+static void
+print_sense(const char *tag)
+{
+	uint32_t len = (uint32_t)ucd.resp[32] << 8 | ucd.resp[33];
+	con_hex2(tag, "response=", ucd.resp[6], "status=", ucd.resp[7]);
+	if (len >= 14)
+		con_hex2(tag, "key=", ucd.resp[34 + 2] & 0xfu,
+		    "asc/ascq=", (uint32_t)ucd.resp[34 + 12] << 8 | ucd.resp[34 + 13]);
+	else
+		con_str(tag, "no sense data in the response UPIU");
+}
+
+/* LUN that answered TUR; partition reads follow it. */
+static uint8_t data_lun;
+
 static uint32_t read_blocks(uint32_t lba, uint32_t count, void *buf)
 {
 	uint8_t cdb[10] = { 0x28, 0, lba >> 24, lba >> 16, lba >> 8, lba, 0, count >> 8, count, 0 };
 	uint32_t ocs, st;
-	return scsi(0, cdb, sizeof(cdb), buf, count * BLOCK, &ocs, &st);
+	return scsi(data_lun, cdb, sizeof(cdb), buf, count * BLOCK, &ocs, &st);
 }
 
 static uint64_t le64(const uint8_t *p)
@@ -228,25 +252,59 @@ void test_ufs(void)
 		return;
 	}
 
-	uint32_t ocs = 0, st = 0, rc;
+	uint32_t ocs = 0, st = 0, rc = 1;
+	int good = -1;
 	static const uint8_t tur[6] = { 0x00 };
-	/* A first command may report a unit attention; retry a few times. */
-	for (int i = 0; i < 3; i++) {
-		rc = scsi(0, tur, sizeof(tur), 0, 0, &ocs, &st);
-		con_hex2("UFS TUR", "rc=", rc, "ocs/st=", ocs << 8 | st);
-		if (!rc)
+	/*
+	 * A unit attention may hit the first command, so retry each LUN a few
+	 * times.  Sweet keeps the GPT on LUN 0; probe every LUN because the
+	 * Pixel's device answers TUR on LUN 0 with CHECK CONDITION.
+	 */
+	for (uint32_t lun = 0; lun < 8; lun++) {
+		for (int i = 0; i < 3; i++) {
+			rc = scsi((uint8_t)lun, tur, sizeof(tur), 0, 0, &ocs, &st);
+			if (!rc)
+				break;
+		}
+		if (rc && lun == 0)
+			print_sense("UFS SENSE");
+		if (rc && sense_not_ready()) {
+			/*
+			 * Pixel 4a: TUR returns NOT READY / INITIALIZING
+			 * COMMAND REQUIRED (2/04/02) until START STOP UNIT.
+			 */
+			static const uint8_t start[6] = { 0x1b, 0, 0, 0, 0x01, 0 };
+			rc = scsi((uint8_t)lun, start, sizeof(start), 0, 0, &ocs, &st);
+			con_hex2("UFS START", "lun=", lun, "rc/ocs/st=", (rc << 16) | (ocs << 8) | st);
+			for (int i = 0; i < 3; i++) {
+				rc = scsi((uint8_t)lun, tur, sizeof(tur), 0, 0, &ocs, &st);
+				if (!rc)
+					break;
+			}
+		}
+		con_hex2("UFS TUR", "lun=", lun, "rc/ocs/st=", (rc << 16) | (ocs << 8) | st);
+		if (!rc) {
+			good = (int)lun;
 			break;
+		}
 	}
+	if (good < 0) {
+		con_str("UFS", "no LUN answered TUR: stop");
+		return;
+	}
+	data_lun = (uint8_t)good;
+	if (good != 0)
+		con_hex2("UFS", "selected lun=", (uint32_t)good, "ocs/st=", ocs << 8 | st);
 
 	static const uint8_t cap10[10] = { 0x25 };	/* READ CAPACITY(10) */
-	rc = scsi(0, cap10, sizeof(cap10), data, 8, &ocs, &st);
+	rc = scsi((uint8_t)good, cap10, sizeof(cap10), data, 8, &ocs, &st);
 	con_hex2("UFS CAP", "rc=", rc, "ocs/st=", ocs << 8 | st);
 	if (!rc)
-		con_hex2("UFS LUN0", "lastlba=", be32(data), "blk=", be32(data + 4));
+		con_hex2("UFS LUN", "lastlba=", be32(data), "blk=", be32(data + 4));
 
 	/* READ(10) LBA 0, 2 blocks: protective MBR and the GPT header. */
 	static const uint8_t rd10[10] = { 0x28, 0, 0, 0, 0, 0, 0, 0, 2, 0 };
-	rc = scsi(0, rd10, sizeof(rd10), data, 2 * BLOCK, &ocs, &st);
+	rc = scsi((uint8_t)good, rd10, sizeof(rd10), data, 2 * BLOCK, &ocs, &st);
 	con_hex2("UFS READ", "rc=", rc, "ocs/st=", ocs << 8 | st);
 	if (rc)
 		return;

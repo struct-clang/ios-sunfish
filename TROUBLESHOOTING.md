@@ -125,6 +125,7 @@ APID mapping from the live FDT.
 | Log | Meaning |
 | --- | --- |
 | `"userdata" on LUN 0` | the UFS driver found the partition |
+| `UFS TUR ... rc/ocs/st=0x00040002` + `UFS SENSE key=2 asc/ascq=0x0402` | NOT READY / INITIALIZING COMMAND REQUIRED: the unit needs SCSI `START STOP UNIT` (0x1B, START=1) before TUR answers. The shim and kernel patch `0028` now send it and retry; expect a `UFS START lun=0` line before the first successful `UFS TUR`. Identical sense on all 8 LUNs is device-level initialization, not a wrong LUN. |
 | `hfs: mounted ...` | the HFS+ root image is readable |
 | `rootvp not authenticated` + panic | the root was not sealed (patch 0029 should make it continue); check that patch applied in CI |
 | `no such file, no dyld cache` | the image lacks a dyld shared cache or the boot args skip ignition; see the sweet notes in `NOTES.md` |

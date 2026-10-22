@@ -1,9 +1,10 @@
 # Acceptance tests: Pixel 4a (sunfish)
 
 Status legend: `PASS` (observed on the phone, or reproduced offline for an
-offline-only test), `FAIL`, `NOT RUN` (blocked), `N/A`. **H1 was observed on
-hardware on 2026-10-22 (red diagnostic screen); H7 passed offline on
-2026-10-23 (two byte-identical full builds). H2-H6 and H8 have not been run.**
+offline-only test), `FAIL`, `NOT RUN` (blocked), `N/A`. **H1 and H2 were
+observed on hardware on 2026-10-22/23 (red diagnostic screen and continuous
+output through the full UFS probe); H7 passed offline on 2026-10-23 (two
+byte-identical full builds). H3-H6 and H8 have not been run.**
 Do not mark a row PASS from a photo of a logo or from a kernel log alone; the
 evidence column says what is required.
 
@@ -38,10 +39,13 @@ has a stop condition.
   the `DISP SRC` / `DISP PP` lines.
 - Stop if: the phone reboots or the screen never changes (see
   `TROUBLESHOOTING.md`).
-- **Status: PASS (2026-10-22, screen observed; exact line capture pending).**
+- **Status: PASS (2026-10-22/23; console text captured, photo still optional).**
   `fastboot boot` accepted the 64 MiB LZ4-frame/AVB image and the user saw the
   red screen with yellow/white text; the phone did not reboot into Android.
-  The photo and the serial `DISP SRC`/`DISP PP` lines are still to be captured.
+  Captured lines: `DISP SRC addr=9C000000 size=09240438`,
+  `DISP CTL top=00020000 intf=00000002`, `DISP no tear-checked pingpong:
+  video mode`, `INITRD lo=84700000 hi=8470007C`, `LOADER no SWEETXNU
+  payload`.
 
 ### H2 — The shim keeps the command-mode panel refreshing
 
@@ -53,7 +57,17 @@ has a stop condition.
   the first frame (the pingpong autorefresh works). `DISP PP ... ar now=80000001`
   is printed and `DISP SRC` points at `0x9c000000` with size `0x09240438`.
 - Evidence: video covering at least 30 s; a second photo after the text stops.
-- **Status: NOT RUN.**
+- **Status: PASS (2026-10-23, effective; 30 s video still to capture).** The
+  output kept appearing from the first `DISP` lines through the whole UFS
+  probe (`UFS ver=00000210 cap=1587031F` ... `UFS probe done, reset in ~3
+  min`), i.e. many seconds of progressive writes, so the panel did not freeze
+  on the first frame. `DISP SRC` points at `0x9c000000` with size
+  `0x09240438` as expected. The UFS probe itself failed before the fix:
+  `UFS TUR lun=0..7 rc/ocs/st=0x00040002`, `UFS SENSE response=1 status=2`,
+  `UFS SENSE key=2 asc/ascq=0x0402`, `UFS no LUN answered TUR: stop`. That
+  sense is NOT READY / INITIALIZING COMMAND REQUIRED; the rebuilt diagnostic
+  (`2cfd6831...`) sends `START STOP UNIT` and should print `UFS START lun=0`
+  followed by working `UFS TUR`/`UFS CAP`/`UFS GPT` lines.
 
 ### H3 — XNU boots from the payload and reaches UFS/launchd
 

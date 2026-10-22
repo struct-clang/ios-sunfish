@@ -98,12 +98,25 @@ needed.
    is on disk. CI run `39837537514` also passed on `macos-15` (artifact
    `a0b7caa0...`), so CI is optional and no longer a blocker. The old run
    `39827421032` is irrelevant.
-2. **Hardware.** The boot chain and diagnostic display run on the phone, and
-   the full XNU payload image is built and offline-checked. The phone is
-   disconnected, so the payload has not been booted. Touch and SpringBoard
-   cannot be observed until it boots and the iOS root is present.
-3. **Root image.** The 16 GiB HFSX image from the iPhone X 16.7.16 IPSW is not
-   on this machine (it lives on the Linux host used for the sweet port).
+2. **Hardware.** The boot chain and diagnostic display run on the phone; the
+   captured console text (`DISP SRC addr=9C000000 size=09240438`,
+   `INITRD lo=84700000 hi=8470007C`, `LOADER no SWEETXNU payload`, then the
+   full UFS probe through `UFS probe done, reset in ~3 min`) shows the shim
+   working end to end, so H1 and H2 have effectively passed. The UFS probe
+   itself failed with `key=2 asc/ascq=0x0402` (NOT READY / INITIALIZING
+   COMMAND REQUIRED); both the shim and `xnu/patches/0028` now send
+   `START STOP UNIT` and retry TUR. The fixed diagnostic is built
+   (`2cfd6831...`) but its result is not yet observed; the XNU payload has
+   still not been booted.
+3. **Root image.** The 16 GiB HFSX image is not on this machine and the repo
+   does not distribute it (no LFS, submodules, releases or image blobs in
+   history). The legitimate source is the Apple iPhone X 16.7.16 (20H392)
+   IPSW (SHA256 `ece1194f...8568fb`, 6,171,035,648 bytes), built with
+   `tools/mkiosroot.sh` + `tools/sweet-root-tweaks.py` on Linux. The user has
+   no `.simg` and no Linux host. A native macOS path exists in pieces
+   (`hdiutil` HFSX + `tools/img2simg.py`) but is untested; `brew install lima
+   qemu` would run the documented Linux path in a VM. SpringBoard and touch
+   stay blocked until either path produces the image.
 4. **No patch-order blocker.** The real dxb/CI build runs the staging scripts
    and applies `0031` and `0041`; the earlier "skipped" observation came from
    a patch-only replay that omitted those scripts. The built kernel contains
@@ -112,20 +125,25 @@ needed.
 
 ## Immediate next steps
 
-1. Reconnect the phone, boot `shim/out/shim-boot-diagnostic.img`
-   (`68a649...`) with `fastboot boot`, and capture the shim's `DISP`/FDT
-   lines (photo/video). Watch the panel for 30 s without touching it (H2).
-2. Boot `shim/out/shim-boot-debug.img` (`4558eb...`, `sweetusb=2`, console
+1. Reconnect the phone and boot `shim/out/shim-boot-diagnostic.img`
+   (`2cfd6831...`) with `fastboot boot`; capture the `UFS START`/`UFS
+   TUR`/`UFS CAP`/`UFS GPT` lines (photo/video). Watch the panel for 30 s
+   without touching it (H2 video).
+2. Decide the root-image path with the user: download the 6.17 GB iPhone X
+   20H392 IPSW on this Mac and build natively (user runs the sudo steps), or
+   `brew install lima qemu` and run the documented Linux build in a VM. Then
+   fetch `DeviceTree.d22ap.im4p` for the ADT `/product` node.
+3. Boot `shim/out/shim-boot-debug.img` (`4558eb...`, `sweetusb=2`, console
    on) for H3 and capture the XNU/UFS/launchd log; then boot
    `shim/out/shim-boot-payload.img` (`2e2880...`, console muted) for H4.
    If it resets, record the last visible line and the reset reason; do not
-   guess.
-3. If the SE7 firmware is present, test `sweettouchbus=1`; if not, the default
+   guess. The UFS `START STOP UNIT` fallback must show in the kernel log.
+4. If the SE7 firmware is present, test `sweettouchbus=1`; if not, the default
    auto path must report the bit-banged ACK. If neither works, the log lines
    listed in `TROUBLESHOOTING.md` isolate power, reset, pad order and protocol.
-4. Flash the iOS root only after H1-H4 pass and the user confirms; then test
+5. Flash the iOS root only after H1-H4 pass and the user confirms; then test
    SpringBoard and touch (H5-H6).
-5. Only after SpringBoard and touch pass, update `README.md` to say "boots on
+6. Only after SpringBoard and touch pass, update `README.md` to say "boots on
    sunfish".
 
 ## Honest limitations

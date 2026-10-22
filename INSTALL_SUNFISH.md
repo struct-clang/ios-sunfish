@@ -19,8 +19,15 @@ It is not for the 4a 5G (`bramble`) and not for any other Pixel.
   and an `aarch64` cross compiler (`scripts/setup-build-env.sh` installs it).
 - A GitHub account for the CI kernel build, or macOS with Xcode 16 for a local
   build.
-- The iPhone X (iPhone10,3) iOS 16.7.16 (20H392) IPSW and a Linux machine to
-  build the HFS+ root image (`tools/mkiosroot.sh`, see the README).
+- The iPhone X (iPhone10,3) iOS 16.7.16 (20H392) **IPSW from Apple** (URL and
+  SHA256 in `README.md` §2) plus `tools/mkiosroot.sh`,
+  `tools/sweet-root-tweaks.py` and a Linux machine to build the HFS+ root
+  image. The image is **not** distributed with this repository (it contains
+  Apple's iOS userland), so it must be built from the IPSW. Without a Linux
+  host: build it in a Lima/QEMU VM (`brew install lima qemu`) or try the
+  native macOS path in §6 (untested end to end, needs your `sudo`).
+  `tools/img2simg.py` replaces the Linux `img2simg` for the final sparse
+  conversion.
 - About an hour, and a USB cable that stays connected.
 
 Everything on `userdata` is lost when you flash the iOS root. The bootloader,
@@ -184,8 +191,28 @@ payload it checks. Nothing is written to flash (still `fastboot boot`).
 
 ## 6. Flash the iOS root (destructive)
 
-Build the HFSX image exactly as for sweet (iPhone X 16.7.16, 16 GiB, see the
-README), then:
+The root image is not distributed with this repository; it is Apple's iPhone X
+userland. `README.md` §2 is the reference build (iPhone X 16.7.16 / 20H392
+IPSW, 16 GiB case-sensitive journaled HFS+ volume, `tools/mkiosroot.sh` +
+`tools/sweet-root-tweaks.py`). It needs a Linux host with `apfs-fuse`,
+`hfsprogs` and sudo. Without one:
+
+- **Linux VM (faithful path):** `brew install lima qemu`, start a VM, run the
+  documented Linux commands there, and let the shared directory carry the
+  DMGs in and `ios16-root.simg` out.
+- **Native macOS (untested end to end):** mount the three DMGs from the IPSW
+  with `hdiutil attach`, create the partitionless volume with
+  `hdiutil create -size 16g -fs HFSX -volname iOSRoot -layout NONE -type
+  SPARSE`, mount it, enable journaling (`sudo diskutil enableJournal
+  /Volumes/iOSRoot`), populate it as root with `sudo rsync -aH --numeric-ids`
+  following `tools/mkiosroot.sh`, run `sudo python3
+  tools/sweet-root-tweaks.py /Volumes/iOSRoot`, detach, convert with
+  `hdiutil convert -format UDTO`, and finally `python3 tools/img2simg.py
+  ios16-root.img ios16-root.simg --verify`. The unknowns are the APFS/cryptex
+  DMG mounts and LZBITMAP decompression under macOS; check the image mounts
+  and that `/System/Library/...` files read uncompressed before flashing.
+
+Then:
 
 ```sh
 scripts/flash-sunfish.sh --image shim/out/shim-boot-payload.img \

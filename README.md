@@ -86,7 +86,23 @@ The output is `kernel.development.sweet`. The same binary is used for both phone
 
 ### 2. Build the iOS root image
 
-Same as on sweet. Download the iPhone X (iPhone10,3) iOS 16.7.16 (20H392) IPSW from Apple, then on Linux, with `apfs-fuse`, `hfsprogs` and sudo:
+The root image is **not distributed** with this repository: it contains Apple's
+iOS userland (there is no LFS, no submodule and no release asset). Build it
+from the Apple iPhone X (iPhone10,3) iOS 16.7.16 (20H392) IPSW:
+
+```
+https://updates.cdn-apple.com/2025FallFCS/fullrestores/122-77006/1158E502-D76D-4226-AA06-ED5E30CD1111/iPhone10,3,iPhone10,6_16.7.16_20H392_Restore.ipsw
+SHA256 ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb
+6,171,035,648 bytes
+```
+
+The members that matter are `087-86698-044.dmg` (OS root),
+`087-86593-047.dmg` (SystemOS cryptex), `087-86715-047.dmg` (AppOS cryptex)
+and `Firmware/all_flash/DeviceTree.d22ap.im4p`. `tools/remotezip.py IPSW_URL`
+lists them and can extract only those over HTTP range requests, so the full
+IPSW download is optional.
+
+On Linux, with `apfs-fuse`, `hfsprogs` and sudo:
 
 ```sh
 tools/mkiosroot.sh OS.dmg SystemOS.dmg AppOS.dmg ios16-root.img 16G
@@ -96,6 +112,13 @@ sudo python3 tools/sweet-root-tweaks.py /mnt/iosroot
 sudo umount /mnt/iosroot
 img2simg ios16-root.img ios16-root.simg
 ```
+
+Without a Linux host, either install one in a VM (`brew install lima qemu`) and
+run the same commands there, or try the **untested** native macOS path in
+`INSTALL_SUNFISH.md` §6: `hdiutil create -layout NONE -fs HFSX`, `rsync -aH
+--numeric-ids` as root, `hdiutil convert -format UDTO`, then
+`python3 tools/img2simg.py ios16-root.img ios16-root.simg --verify` in place
+of the missing `img2simg`.
 
 `mkiosroot.sh` merges the OS volume and both cryptexes into one case-sensitive journaled HFS+ volume. `sweet-root-tweaks.py` applies the bring-up changes; its header explains each one. The device tree builder also needs `/product` from the real iPhone X device tree:
 
