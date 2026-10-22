@@ -4,7 +4,7 @@
 
 This is a port of [ios-sweet](https://github.com/dipa-studio/ios-sweet). That project runs Apple's open-source XNU kernel (xnu-8796, iOS 16 generation) with the **unmodified iOS 16.7.16 userland of the iPhone X** on the Redmi Note 10 Pro. The Pixel 4a (`sunfish`) uses the same Qualcomm SM7150 chip. Most of that work therefore carries over, and this repository adds what differs on the Pixel.
 
-> **Status (2026-10-22): the boot chain and the diagnostic display are verified on a real Pixel 4a; XNU, SpringBoard and touch are not.** `fastboot boot` accepts the 64 MiB LZ4-frame/AVB shim image and the panel shows the red shim diagnostics. The full sunfish XNU payload is built and passes the offline checks, but it has not been booted and the iOS root has not been flashed, so no SpringBoard or touch test has run. The first-boot checklist is in [`docs/SUNFISH.md`](docs/SUNFISH.md); see [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is verified and what is not.
+> **Status (2026-10-23): the boot chain and the diagnostic display are verified on a real Pixel 4a; XNU, SpringBoard and touch are not.** `fastboot boot` accepts the 64 MiB LZ4-frame/AVB shim image and the panel shows the red shim diagnostics. The full sunfish XNU payload is built, passes the offline checks and reproduces byte-for-byte (H7), but it has not been booted and the iOS root has not been flashed, so no SpringBoard or touch test has run. The first-boot checklist is in [`docs/SUNFISH.md`](docs/SUNFISH.md); see [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is verified and what is not.
 
 > Experimental bring-up, not a usable phone OS. Apple's security model is mostly switched off. It installs into the `userdata` partition, so **it erases Android's user data**.
 
@@ -54,7 +54,7 @@ Details and register-level notes are in [`docs/SUNFISH.md`](docs/SUNFISH.md).
 
 ## How to do it yourself
 
-You need a Pixel 4a (`sunfish`, not the 4a 5G) with an **unlockable bootloader**. Carrier-locked models, Verizon's in particular, cannot be unlocked. You also need a Linux PC and a GitHub account for the kernel build. **Everything on `userdata` is lost.** The bootloaders, modem and persist partitions are never touched.
+You need a Pixel 4a (`sunfish`, not the 4a 5G) with an **unlockable bootloader**. Carrier-locked models, Verizon's in particular, cannot be unlocked. Build the kernel on macOS with Xcode 16.2 (local, no sudo) or use a GitHub account for the `macos-15` workflow; build the iOS root on Linux. **Everything on `userdata` is lost.** The bootloaders, modem and persist partitions are never touched.
 
 ### 0. Unlock and back up
 

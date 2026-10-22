@@ -1,8 +1,9 @@
 # Porting notes: sunfish (Google Pixel 4a)
 
-Status (2026-10-22): **ported, full XNU payload built, not yet booted on
-hardware.** The shim, the kernel (`0082`/`0083` applied) and the full payload
-pass the offline checks; the diagnostic shim has run on the phone. No XNU,
+Status (2026-10-23): **ported, full XNU payload built and reproducible, not
+yet booted on hardware.** The shim, the kernel (`0031`, `0041`, `0082` and
+`0083` applied) and the full payload pass the offline checks and reproduce
+byte-for-byte (H7); the diagnostic shim has run on the phone. No XNU,
 SpringBoard or touch test has run (see
 [`ACCEPTANCE_TESTS.md`](../ACCEPTANCE_TESTS.md)). The first boot on the phone
 has to confirm the points in "To check on first boot".
@@ -61,7 +62,13 @@ scripts/build.sh --shim-only            # diagnostics image, no kernel
 scripts/check-artifacts.sh --shim-only
 scripts/build-kernel-local.sh           # or download the CI xnu-kernel artifact
 scripts/build.sh --kernel xnu/out/kernel.development.sweet
+scripts/check-artifacts.sh --device sunfish --image shim/out/shim-boot.img \
+    --adt shim/out/sunfish.adt --payload shim/out/payload.bin
 ```
+
+For the first XNU boot, build the debug payload (`sweetfb_noconsole=0
+sweetusb=2`) as in [`INSTALL_SUNFISH.md`](../INSTALL_SUNFISH.md) section 5;
+`shim/out/shim-boot-debug.img` is the artifact already in the tree.
 
 The manual equivalent is:
 
@@ -76,10 +83,12 @@ DEVICE=sunfish shim/build.sh shim/out/payload.bin                # -> shim/out/s
 specific toolchain prefix is required (set `CROSS=` to override).
 
 The iOS root image is the same as on sweet (iPhone X 16.7.16). Flash it to
-`userdata` with `scripts/flash-sunfish.sh --flash-root ios16-root.simg`. That
-**erases Android's user data**. The bootloader must be unlocked
-(`fastboot flashing unlock`). Then run `scripts/flash-sunfish.sh` (temporary
-`fastboot boot`; nothing is flashed to `boot_a`/`boot_b`).
+`userdata` with `scripts/flash-sunfish.sh --image shim/out/shim-boot-payload.img
+--flash-root ios16-root.simg`. That **erases Android's user data**. The
+bootloader must be unlocked (`fastboot flashing unlock`). Then run
+`scripts/flash-sunfish.sh` (temporary `fastboot boot`; nothing is flashed to
+`boot_a`/`boot_b`). `--flash-root` refuses a diagnostic/shim-only image and
+checks that the image ramdisk matches the payload byte-for-byte.
 
 Read the persistent log from TWRP for sunfish (adb root) with
 `tools/sweet-log-pull.sh`. It finds `userdata` by name.
@@ -99,8 +108,9 @@ Try these steps in order. Each one can be tested without the steps after it.
      the display was off. If the screen freezes on the first frame, autorefresh
      did not take. The fallback is to kick `CTL_START` (CTL base + `0x1c`) after
      each frame, in the shim's console and in AppleCLCD's present path.
-2. **Kernel**: the early console and the Apple logo phase, then the UFS line
-   `"userdata" on LUN 0`.
+2. **Kernel**: boot the debug image (`shim/out/shim-boot-debug.img`) and watch
+   the early console and the Apple logo phase, then the UFS line
+   `"userdata" on LUN 0`; the normal image mutes the console.
 3. **Touch**: log lines `SWEET TOUCH: PM6150 GPIO4 …`, then either
    `selected ST FTM5` after the SE7/FIFO path or `SE7 firmware unusable; using
    bit-banged I2C` followed by `FTM5 ACK on bit-banged I2C sda=6 scl=7`. Then
