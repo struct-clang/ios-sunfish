@@ -128,8 +128,9 @@ jobs:
           (cd out && shasum -a 256 kernel.* > SHA256SUMS) || true
 
       - name: Check board support in the kernel
-        # CI applies patches with "git apply --check || skip", so a patch that
-        # stopped applying only shows up as missing strings in the binary.
+        # dxb applies the staged scripts before the patches; if a patch stops
+        # applying, the only visible symptom is a missing string in the
+        # binary, so check the important ones explicitly.
         run: |
           k=$(ls out/kernel.development.* out/kernel.release.* 2>/dev/null | grep -v '\.dSYM' | head -1)
           [ -n "$k" ] || { echo "no kernel in out/"; exit 1; }
