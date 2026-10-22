@@ -4,7 +4,7 @@
 
 This is a port of [ios-sweet](https://github.com/dipa-studio/ios-sweet). That project runs Apple's open-source XNU kernel (xnu-8796, iOS 16 generation) with the **unmodified iOS 16.7.16 userland of the iPhone X** on the Redmi Note 10 Pro. The Pixel 4a (`sunfish`) uses the same Qualcomm SM7150 chip. Most of that work therefore carries over, and this repository adds what differs on the Pixel.
 
-> **Status (2026-10-22): ported, not yet booted on a Pixel 4a.** Everything in the sweet column of the table below has run on real hardware. The sunfish-specific parts (the display refresh, the touch driver, the bit-banged I2C fallback and the boot image) are written and build, but nobody has tried them on a phone yet. No acceptance test in [`ACCEPTANCE_TESTS.md`](ACCEPTANCE_TESTS.md) has run. The first-boot checklist is in [`docs/SUNFISH.md`](docs/SUNFISH.md); see [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is verified and what is not.
+> **Status (2026-10-22): the boot chain and the diagnostic display are verified on a real Pixel 4a; XNU, SpringBoard and touch are not.** `fastboot boot` accepts the 64 MiB LZ4-frame/AVB shim image and the panel shows the red shim diagnostics. The sunfish XNU payload and the iOS root have not been booted, so no SpringBoard or touch test has run. The first-boot checklist is in [`docs/SUNFISH.md`](docs/SUNFISH.md); see [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is verified and what is not.
 
 > Experimental bring-up, not a usable phone OS. Apple's security model is mostly switched off. It installs into the `userdata` partition, so **it erases Android's user data**.
 
@@ -12,11 +12,11 @@ This is a port of [ios-sweet](https://github.com/dipa-studio/ios-sweet). That pr
 
 | Area | sweet (Redmi Note 10 Pro) | sunfish (Pixel 4a) |
 | --- | --- | --- |
-| Boot (`fastboot boot` shim → XNU) | works | untested; Pixel boot image layout and `0x80000` text offset handled |
-| CPUs, memory, interrupts, timers | works (8 cores) | same SoC, same code |
-| UFS storage, iOS root in `userdata` | works | same SoC, same code |
-| Display | works (video-mode panel) | untested; command-mode panel, kept refreshing with MDP autorefresh |
-| iOS GUI (SpringBoard, Settings, Control Center) | works | depends on the display |
+| Boot (`fastboot boot` shim → XNU) | works | shim accepted by the Pixel ABL and the red diagnostics rendered (H1); XNU payload not booted yet |
+| CPUs, memory, interrupts, timers | works (8 cores) | same SoC, same code; untested on sunfish |
+| UFS storage, iOS root in `userdata` | works | same SoC, same code; untested on sunfish |
+| Display | works (video-mode panel) | shim diagnostics work (command-mode panel + MDP autorefresh); iOS rendering untested |
+| iOS GUI (SpringBoard, Settings, Control Center) | works | untested: needs the XNU payload and the root |
 | Touch | works (Goodix GT9896) | untested; new ST FTM5 driver path, SE7/FIFO or bit-banged I2C |
 | Buttons (power, volume) | works | same PMIC wiring, same code |
 | USB networking + live kernel log | works | same USB controller, same code |
@@ -43,7 +43,7 @@ Both phones are SM7150. The CPUs, GIC, RAM layout, the splash framebuffer at `0x
 
 | | sweet | sunfish | Where |
 | --- | --- | --- | --- |
-| Boot image | Xiaomi layout, text offset 0 | **stock Pixel 4a** header: ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`; ABL requires Image text offset **`0x80000`** | `DEVICE=sunfish shim/build.sh` |
+| Boot image | Xiaomi layout, text offset 0 | **stock Pixel 4a** header: ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`; ABL requires Image text offset **`0x80000`**, an **LZ4 frame** kernel and an unsigned 64 MiB AVB footer | `DEVICE=sunfish shim/build.sh` |
 | Panel | 1080x2400, video mode | 1080x2340 Samsung sofef01, **command mode**: the display controller only sends a frame when kicked | `shim/disp.c` enables pingpong autorefresh |
 | Touch | Goodix GT9896 @ `0x5d` | in-cell **ST FTM5 @ `0x49`** | kernel patch `0082`, `sweet_touch.c` |
 | Touch bus | QUP SE7 I2C | SE7 if ABL loaded GENI firmware; otherwise open-drain I2C bit-banged on TLMM 6/7 (pad order auto-detected) | `0082`, `sweettouchbus=0/1/2` |
@@ -193,7 +193,7 @@ Many names still say `sweet` (drivers, boot-args, the `SWEET` machine config). T
 - RAM: the payload uses the upper bank, `0x100000000` + `0xfcc00000`.
 - Panel: 1080x2340 Samsung sofef01 OLED, DSI command mode, continuous splash at `0x9c000000` (a8r8g8b8, stride 4320).
 - Touch: ST FTM5 at I²C `0x49` on QUP SE7 (`0xa84000`) if ABL loaded GENI firmware, otherwise bit-banged on TLMM 6/7; reset GPIO 8, IRQ GPIO 9, IRQ route switch GPIO 72, power switch PM6150 GPIO4.
-- Boot image: stock Pixel 4a header v2, kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`, page 4096; the Image header must say `text_offset=0x80000`.
+- Boot image: stock Pixel 4a header v2, kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`, page 4096; the Image header must say `text_offset=0x80000`; the kernel must be an **LZ4 frame** and the image must end in an **unsigned AVB footer** padded to 64 MiB (the stock LineageOS image uses the same scheme).
 - Buttons: power and volume down on the PM6150 PON block, volume up on PM6150L GPIO2.
 - Storage: UFS at `0x1d84000`, `userdata` on LUN 0.
 

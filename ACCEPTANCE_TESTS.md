@@ -1,11 +1,9 @@
 # Acceptance tests: Pixel 4a (sunfish)
 
 Status legend: `PASS` (observed on the phone), `FAIL`, `NOT RUN` (blocked),
-`N/A`. **No test below has been run on hardware.** The phone was not connected
-during the work on 2026-10-22 (`fastboot devices` and `adb devices` were
-empty), so every hardware row is `NOT RUN`. Do not mark a row PASS from a
-photo of a logo or from a kernel log alone; the evidence column says what is
-required.
+`N/A`. **H1 was observed on hardware on 2026-10-22 (red diagnostic screen);
+H2-H8 have not been run.** Do not mark a row PASS from a photo of a logo or
+from a kernel log alone; the evidence column says what is required.
 
 ## Offline checks (already run)
 
@@ -14,7 +12,7 @@ required.
 | O1 | Patch series applies to a fresh `xnu-8796.141.3` tree; the new `0082` reproduces the edited tree | PASS (0031/0041 pre-existing failures) | `git apply --check`, byte compare in the scratch tree |
 | O2 | `sweet_touch.c` parses with the kernel headers | PASS | `clang -fsyntax-only` (only pre-existing implicit `delay`) |
 | O3 | Shim cross-builds for sunfish; Image header and boot image header match the stock v2 layout | PASS | `scripts/check-artifacts.sh` output |
-| O4 | Stock `boot.img` repacked with `tools/mkbootimg_v2.py` round-trips kernel/ramdisk/DTB | PASS | byte-identical payloads, identical fields |
+| O4 | Stock `boot.img` repacked with `tools/mkbootimg_v2.py` round-trips kernel/ramdisk/DTB | PASS | byte-identical to stock except avbtool's release string (one byte); the repacked image boots |
 | O5 | `mkadt.py --device sunfish` emits `google,sunfish` and a 1080x2340 framebuffer | PASS | ADT parsed with `tools/adt.py` |
 
 Offline PASS only means "the tools and files are consistent". It says nothing
@@ -37,7 +35,10 @@ has a stop condition.
   the `DISP SRC` / `DISP PP` lines.
 - Stop if: the phone reboots or the screen never changes (see
   `TROUBLESHOOTING.md`).
-- **Status: NOT RUN (no device).**
+- **Status: PASS (2026-10-22, screen observed; exact line capture pending).**
+  `fastboot boot` accepted the 64 MiB LZ4-frame/AVB image and the user saw the
+  red screen with yellow/white text; the phone did not reboot into Android.
+  The photo and the serial `DISP SRC`/`DISP PP` lines are still to be captured.
 
 ### H2 — The shim keeps the command-mode panel refreshing
 

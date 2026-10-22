@@ -86,6 +86,23 @@ cmp -s "$tmp/dtb" "$DTB" || fail "DTB in the boot image differs from $DTB"
 ok "DTB matches $DTB ($(stat -c %s "$DTB" 2>/dev/null || stat -f %z "$DTB") bytes)"
 
 if [ "$DEVICE" = sunfish ]; then
+	# Pixel ABL rejects raw and legacy-LZ4 kernels with "Unsupported"; it
+	# boots the stock LineageOS kernel's LZ4 frame format.
+	python3 - "$tmp/kernel" <<'PY' || exit 1
+import sys
+with open(sys.argv[1], 'rb') as f:
+    magic = f.read(4)
+if magic != bytes.fromhex('04 22 4d 18'):
+    sys.exit('FAIL: boot image kernel is not LZ4 frame format (Pixel ABL rejects it)')
+print('ok:   kernel is LZ4 frame (Pixel ABL requirement)')
+PY
+	command -v lz4 >/dev/null 2>&1 || fail "lz4 is required to verify the compressed kernel"
+	lz4 -d -q -f "$tmp/kernel" "$tmp/kernel.raw" >/dev/null
+	cmp -s "$tmp/kernel.raw" shim/out/Image || fail "decompressed kernel differs from shim/out/Image"
+	ok "kernel decompresses to shim/out/Image ($(stat -c %s shim/out/Image 2>/dev/null || stat -f %z shim/out/Image) bytes)"
+fi
+
+if [ "$DEVICE" = sunfish ]; then
 	# Pixel ABL rejects `fastboot boot` without an AVB footer. The build
 	# writes an unsigned (algorithm NONE) hash footer, matching stock.
 	python3 - "$IMAGE" <<'PY' || exit 1
@@ -167,8 +184,11 @@ PY
 fi
 
 echo
-shasum -a 256 shim/out/Image "$IMAGE" 2>/dev/null \
-	|| sha256sum shim/out/Image "$IMAGE"
+HASH_FILES="shim/out/Image"
+if [ -f shim/out/Image.lz4 ]; then HASH_FILES="$HASH_FILES shim/out/Image.lz4"; fi
+HASH_FILES="$HASH_FILES $IMAGE"
+shasum -a 256 $HASH_FILES 2>/dev/null \
+	|| sha256sum $HASH_FILES
 [ -z "$PAYLOAD" ] || { shasum -a 256 "$PAYLOAD" 2>/dev/null || sha256sum "$PAYLOAD"; }
 [ -z "$ADT" ] || { shasum -a 256 "$ADT" 2>/dev/null || sha256sum "$ADT"; }
 echo

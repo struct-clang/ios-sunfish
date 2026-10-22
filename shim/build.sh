@@ -78,7 +78,7 @@ esac
 OBJS="start shim console mmu fdt loader ufs disp"
 mkdir -p out
 # Keep out/payload.bin and out/*.adt: scripts/build.sh creates them here.
-rm -f out/*.o out/Image out/shim.elf out/shim-boot.img out/host_test out/ramdisk.bin
+rm -f out/*.o out/Image out/Image.lz4 out/shim.elf out/shim-boot.img out/host_test out/ramdisk.bin
 rm -rf out/boot-check
 for f in start.S shim.c console.c mmu.c fdt.c loader.c ufs.c disp.c; do
 	$CC $CFLAGS -c $f -o out/${f%.*}.o
@@ -112,10 +112,23 @@ fi
 [ -f "$DTB" ] || { echo "error: stock DTB $DTB missing (see README: unpack the stock boot.img)" >&2; exit 1; }
 # The boot image os_version/os_patch_level are informational (AVB rollback
 # lives in vbmeta, not here); use the values from the phone's own boot.img.
+KERNEL=out/Image
+PACKER_EXTRA=()
+if [ "$DEVICE" = sunfish ]; then
+	# Pixel ABL only boots a compressed kernel; a raw arm64 Image and the
+	# legacy LZ4 format both fail with "Error verifying the received
+	# boot.img: Unsupported". The stock LineageOS kernel is an LZ4 frame
+	# (magic 04 22 4d 18), so compress the shim the same way.
+	command -v lz4 >/dev/null 2>&1 || { echo "error: lz4 is required for DEVICE=sunfish" >&2; exit 1; }
+	lz4 -12 -f out/Image out/Image.lz4 >/dev/null
+	KERNEL=out/Image.lz4
+	PACKER_EXTRA=(--allow-compressed-kernel)
+fi
 # shellcheck disable=SC2086 # MKBOOTIMG_LAYOUT is a list of arguments
 python3 "$ROOT/tools/mkbootimg_v2.py" --header_version 2 \
-	--kernel out/Image --ramdisk out/ramdisk.bin --dtb "$DTB" \
+	--kernel "$KERNEL" --ramdisk out/ramdisk.bin --dtb "$DTB" \
 	$MKBOOTIMG_LAYOUT --pagesize 4096 \
+	"${PACKER_EXTRA[@]}" \
 	--os_version 17.0.0 --os_patch_level 2026-10 \
 	--cmdline "console=null" -o out/shim-boot.img
 if [ "$DEVICE" = sunfish ]; then
@@ -142,5 +155,7 @@ HOST_DEFS=$(echo "$CFLAGS" | grep -o -- '-DFB_H=[0-9]*' || true)
 $HOSTCC -O1 -Wall $HOST_DEFS -o out/host_test console.c host_test.c
 ./out/host_test
 echo "DEVICE=$DEVICE"
-ls -l out/Image out/shim-boot.img
-shasum -a 256 out/Image out/shim-boot.img 2>/dev/null || sha256sum out/Image out/shim-boot.img
+FILES="out/Image out/shim-boot.img"
+if [ -f out/Image.lz4 ]; then FILES="out/Image out/Image.lz4 out/shim-boot.img"; fi
+ls -l $FILES
+shasum -a 256 $FILES 2>/dev/null || sha256sum $FILES

@@ -3,9 +3,10 @@
 This is the end-to-end procedure for the **Pixel 4a 4G** (`sunfish`, SM7150).
 It is not for the 4a 5G (`bramble`) and not for any other Pixel.
 
-> **Read this first:** the port has never booted on a Pixel 4a. Everything here
-> is written for the first attempt and is expected to need debugging. Every
-> destructive step is marked; nothing is automatic. See
+> **Read this first:** the boot chain and the red diagnostic screen have been
+> verified on a Pixel 4a (2026-10-22); XNU, SpringBoard and touch have not.
+> Everything from step 5 on is written for the first attempt and is expected to
+> need debugging. Every destructive step is marked; nothing is automatic. See
 > [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is and is not verified.
 
 ## What you need
@@ -89,8 +90,10 @@ scripts/check-artifacts.sh --shim-only
 ```
 
 This produces `shim/out/shim-boot.img` with the stock v2 header fields
-(kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`) and an
-Image with `text_offset=0x80000`. The check must print `ok` for every line.
+(kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`), an
+Image with `text_offset=0x80000`, an **LZ4 frame** kernel and an unsigned AVB
+hash footer padded to the 64 MiB boot partition. The check must print `ok` for
+every line, including `kernel is LZ4 frame` and `AVB footer present`.
 
 Then boot it **temporarily**:
 
@@ -100,8 +103,8 @@ scripts/flash-sunfish.sh
 
 Nothing is written to flash; this is `fastboot boot`. Expected result:
 
-- a red screen with a few lines of text (`SHIM`, `DISP SRC`, `DISP PP`, FDT
-  lines);
+- a red screen with yellow and white text (`SHIM`, `DISP SRC`, `DISP PP`, FDT
+  lines). This was observed on the phone on 2026-10-22;
 - the lines appear one after another, because the shim prints as it probes;
 - the screen keeps updating. If it freezes after the first frame, the command
   mode autorefresh did not take (see `TROUBLESHOOTING.md`).
@@ -195,6 +198,9 @@ this way.
 
 ## Current status
 
-This procedure has **not been run on a phone**. The offline artifacts build;
-the hardware steps are untested. Treat every expected result above as a
-hypothesis and record what actually happens.
+The boot chain (steps 0-4) has been exercised on a real Pixel 4a on
+2026-10-22: the stock, repacked-stock and payload-less shim images boot via
+`fastboot boot`, and the shim renders the red diagnostic screen. The XNU
+payload (step 5), the root flash (step 6) and the touch/SpringBoard tests have
+**not** been run. Treat every expected result from step 5 on as a hypothesis
+and record what actually happens.

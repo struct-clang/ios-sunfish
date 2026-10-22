@@ -17,6 +17,7 @@ straight into Android without showing the red screen.
 | `Kernel TextOffset does not match` | the Image header's `text_offset` is not `0x80000` | build with `DEVICE=sunfish`; confirm `scripts/check-artifacts.sh` prints `text_offset=0x80000` |
 | `Invalid boot image header` / `header version` | not header v2, bad page size | use `tools/mkbootimg_v2.py` through `shim/build.sh`; do not repack with an old `mkbootimg` |
 | `Failed to load/verify boot images` | the image is larger than ABL's fastboot buffer or the boot slot | use the payload-less shim first; the full payload is bigger |
+| `Error verifying the received boot.img: Unsupported` | the kernel is a raw arm64 Image or legacy-LZ4, or the image has no AVB footer | build through `scripts/build.sh` for sunfish: it emits an LZ4 **frame** kernel and an unsigned 64 MiB AVB hash footer. `scripts/check-artifacts.sh` must print `kernel is LZ4 frame` and `AVB footer present`; stock and repacked-stock images are accepted, so compare against those |
 | immediate reboot, no screen | wrong `kernel_addr`/`ramdisk_addr` or a non-arm64 Image | check the header fields; `scripts/check-artifacts.sh` compares them with the stock layout |
 | `device is locked` | bootloader locked | unlock it yourself; the scripts refuse to do it |
 
@@ -24,6 +25,22 @@ The stock offsets used here are from the phone's own `boot.img`:
 kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`, page
 4096. The LineageOS `BoardConfig` values (`0x02000000` / `0x01e00000`) are for
 a different loader path and are **not** used.
+
+The Pixel 4a ABL is stricter than the Xiaomi ABL used for sweet:
+
+- the kernel must be **LZ4 frame** (`04 22 4d 18`), as in the stock LineageOS
+  image. A raw `Image` and the legacy LZ4 format (`02 21 4c 18`) both fail with
+  `Error verifying the received boot.img: Unsupported`;
+- the image must end in an AVB hash footer. Stock uses `Algorithm: NONE`
+  (no signature), so the build writes the same unsigned footer and pads to the
+  64 MiB boot partition. No Google key is needed;
+- `os_version` must be encoded (stock `0x220001aa`, Android 17.0.0/2026-10),
+  not zero. `tools/mkbootimg_v2.py` encodes it and includes the DTB in the
+  header `id`.
+
+`shim/build.sh` and `scripts/check-artifacts.sh` enforce all three for
+`DEVICE=sunfish`. If you repack by hand, use `lz4 -12` (not `-l`) and
+`tools/avbtool.py add_hash_footer --algorithm NONE --partition_size 67108864`.
 
 ## The red screen does not update
 
