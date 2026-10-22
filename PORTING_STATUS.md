@@ -1,10 +1,10 @@
 # Porting status: Google Pixel 4a (sunfish)
 
-**Last updated: 2026-10-22. Branch: `sunfish-port`.**
+**Last updated: 2026-10-23. Branch: `sunfish-port`.**
 
 ## Verdict
 
-**Not accepted. The boot chain and the diagnostic display are now verified on a real Pixel 4a; SpringBoard and touch are not.** The payload-less shim built by `scripts/build.sh --shim-only` was accepted by `fastboot boot` and produced the red/yellow/white diagnostic screen on the internal panel on 2026-10-22. The full XNU payload (built kernel + sunfish ADT) is now built and passes every offline check, but it has not been booted; the iOS root has not been flashed. `ACCEPTANCE_TESTS.md` H2-H8 are still `NOT RUN`. The exact `DISP`/FDT lines are pending a photo; do not infer panel timings or touch from the screen colours alone.
+**Not accepted. The boot chain and the diagnostic display are now verified on a real Pixel 4a; SpringBoard and touch are not.** The payload-less shim built by `scripts/build.sh --shim-only` was accepted by `fastboot boot` and produced the red/yellow/white diagnostic screen on the internal panel on 2026-10-22. The full XNU payload (built kernel + sunfish ADT) is now built and passes every offline check, but it has not been booted; the iOS root has not been flashed. `ACCEPTANCE_TESTS.md` H2-H6 and H8 are still `NOT RUN`; H7 passed offline (two byte-identical full builds). The exact `DISP`/FDT lines are pending a photo; do not infer panel timings or touch from the screen colours alone.
 
 Do not treat a compiled kernel, a built boot image or a red diagnostic screen
 as proof of the port. Acceptance requires the six items in
@@ -17,7 +17,7 @@ as proof of the port. Acceptance requires the six items in
 | Touch controller | ST FTM5 at I2C `0x49`, reset GPIO 8, IRQ GPIO 9, switch GPIO 72, `st,max-coords = <1079 2339>` | Written in patch `0082`; compile-tested only |
 | Touch power | PM6150 GPIO4 load switch through a new, address-restricted `sweet_spmi_write()` (`0xc340..0xc346`, SID 0, EE0 ownership check) | Written; register sequence checked against downstream `pinctrl-spmi-gpio` and `spmi-pmic-arb` |
 | Touch bus fallback | Pixel ABL has no GENI/I2C strings and does not appear to load SE7 firmware (the Xiaomi ABL does). If `touch_se_init()` fails, the same chip is driven with open-drain I2C bit-banged on TLMM 6/7; the pad order is auto-detected by ACK | Written; **never run on hardware** |
-| Scan mode | Vendor `ftsCore.c` sequence: `{fa 20 00 00 00 00 00}` then `{a0 00 00}`; rescan after `0x03`/`0xf3` events, rate-limited | Written |
+| Scan mode | Vendor `ftsCore.c` sense-on sequence: `{fa 20 00 00 00 00 00}` then `{a0 00 ff}`; rescan after `0x03`/`0xf3` events, rate-limited | Written; compile-tested only. The earlier `{a0 00 00}` was the vendor's **sense-off** command and was fixed on 2026-10-23 after re-reading `fts_mode_handler` |
 | Panel | 1080x2340 Samsung sofef01, DSI command mode; MDP pingpong autorefresh instead of `CTL_START` | `shim/disp.c`; the red diagnostic screen was observed on the panel (H1), iOS rendering is not yet tested |
 | Boot image | header v2 with the **stock** offsets: kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`; Image `text_offset=0x80000`; kernel **LZ4 frame**; unsigned AVB hash footer, padded to 64 MiB | Accepted by `fastboot boot` on 2026-10-22; repacking the stock payloads reproduces the stock image except avbtool's release string |
 | Platform | ADT root `google,sunfish`, 1080x2340 framebuffer, platform expert matches both boards | `tools/mkadt.py --device sunfish` output checked |
@@ -26,7 +26,7 @@ as proof of the port. Acceptance requires the six items in
 The kernel binary is still the shared `SWEET` machine config; only the ADT and
 the shim boot image are per device.
 
-## Offline verification performed (2026-10-22)
+## Offline verification performed (2026-10-22, updated 2026-10-23)
 
 All of this is reproducible with `scripts/build.sh` and
 `scripts/check-artifacts.sh`.
@@ -42,8 +42,10 @@ All of this is reproducible with `scripts/build.sh` and
 | Repack of the stock `boot.img` with `tools/mkbootimg_v2.py` | byte-identical to stock except the avbtool release string (`1.3.0` vs `1.4.0`); the repacked image boots |
 | Sunfish ADT | 10092 bytes; root `D22AP | iPhone10,3 | google,sunfish | qcom,sm7150 | AppleARM`; fb 1080x2340, stride 4320 |
 | Device access | phone attached in fastboot, bootloader unlocked; `fastboot boot` of the stock, repacked-stock and frame-LZ4 shim images all accepted |
-| Full XNU kernel build | **yes**, Xcode 16.2 + extracted 13.5 KDK + pinned dxb; `kernel.development.sweet` 16777216 bytes, SHA256 `0562cca00b2f98c91e22f379c05064a12f73e5733f7fc3ac71bd9d01b1e90d86`; contains `google,sunfish` and all four FTM5 strings |
-| Full payload build | **yes**, 10 segments, entry `0xfffffe0007490488`, `payload.bin` 16628560 bytes; boot image SHA256 `fb61c5ef...` (see below); every `check-artifacts.sh` line passes |
+| Full XNU kernel build | **yes**, Xcode 16.2 + extracted 13.5 KDK + pinned dxb; `kernel.development.sweet` 17240048 bytes, SHA256 `e24fe3778f14b809d4a69465246f64f8accbbd55d21c021dbffbff92b2e8316c`; contains `google,sunfish`, the FTM5 strings and the corrected sense-on bytes `a0 00 ff` |
+| Full payload build | **yes**, 10 segments, entry `0xfffffe0007490488`, `payload.bin` 16628560 bytes SHA256 `e77d29244b469c165bec298728ba66c74fb76c54a90c935710c228cb96f6bac2`; boot image SHA256 `2e2880...` (see below); every `check-artifacts.sh` line passes |
+| Reproducible full build | **yes**: two consecutive `scripts/build.sh` runs produced byte-identical ADT, payload and 64 MiB boot image (`2e2880...`). `tools/mkadt.py` now uses a fixed 64-byte `random-seed` by default (`--random-seed` still exists). This satisfies H7 offline |
+| FTM5 sense-on fix | **yes**: re-reading vendor `ftsCore.c` showed `{0xa0, 0x00, 0xff}` is sense-on and `{0xa0, 0x00, 0x00}` is **sense-off**; `0082` and the rebuilt binary use `0xff` |
 
 The kernel was built locally with `scripts/build-kernel-local.sh` (same
 pinned dxb revision and patches as CI). This removes the macOS-14 CI runner
@@ -55,22 +57,29 @@ Artifact hashes from the offline build (payload-less diagnostic shim, scratch DT
 ```
 04093e0658a7209fbef75d8d5a1d0830b3a750d33f581cc900a5abe23c5ecee4  shim/out/Image
 c0023e4c1e0eb4420a0513547fd015e926727e34874f1cf9bb4f0cefe9713d1b  shim/out/Image.lz4
-68a6493af1c1f323e97afc13d5bed2a20f35d8b387950d9ba2fb6bd85b0e634a  shim/out/shim-boot.img  (diagnostic)
+68a6493af1c1f323e97afc13d5bed2a20f35d8b387950d9ba2fb6bd85b0e634a  shim/out/shim-boot-diagnostic.img
 ```
 
-Full payload image (kernel + ADT + shim, the image to boot next):
+Full payload image (kernel + ADT + shim, the image to boot for H3+):
 
 ```
-fb61c5eff317992519cf44822ddb02c85e9de2c3bdd913625a6630f4bffc3e6a  shim/out/shim-boot.img  (full payload)
+e77d29244b469c165bec298728ba66c74fb76c54a90c935710c228cb96f6bac2  shim/out/payload.bin
+2e28809ed12dda6255e952ea404210f44c4c289400b2d5a447d9ed74bf5f4402  shim/out/shim-boot.img  (full payload)
 ```
 
-The boot image is 67108864 bytes (the 64 MiB boot partition): LZ4 frame
-kernel + unsigned AVB hash footer. `scripts/check-artifacts.sh` verifies the
-frame magic, decompresses it back to `shim/out/Image`, and verifies the AVB
+The local tree keeps both images: `shim/out/shim-boot-diagnostic.img`
+(`68a649...`) for H1/H2 and `shim/out/shim-boot-payload.img` (`2e2880...`)
+for H3+. `shim/out/shim-boot.img` is currently the full payload. The boot
+image is 67108864 bytes (the 64 MiB boot partition): LZ4 frame kernel +
+unsigned AVB hash footer. `scripts/check-artifacts.sh` verifies the frame
+magic, decompresses it back to `shim/out/Image`, and verifies the AVB
 footer/hash descriptor.
 
-These are diagnostics-only images. The hashes change as soon as the kernel or
-the ADT changes; use `scripts/check-artifacts.sh` to print the current ones.
+The hashes change as soon as the kernel or the ADT changes; use
+`scripts/check-artifacts.sh` to print the current ones. The stock boot image
+has a 17.5 MB kernel and 17.9 MB ramdisk at the same nominal offsets, so the
+16.6 MB payload is within the proven stock layout; no header relocation is
+needed.
 
 ## What is blocked, and why
 
@@ -92,10 +101,11 @@ the ADT changes; use `scripts/check-artifacts.sh` to print the current ones.
 
 ## Immediate next steps
 
-1. Reconnect the phone, boot `shim/out/shim-boot.img` (`fb61c5ef...`) with
-   `fastboot boot`, and capture the shim's `DISP`/FDT lines (photo/video).
-   Watch the panel for 30 s without touching it (H2).
-2. Follow `ACCEPTANCE_TESTS.md` H3-H4: XNU entry, framebuffer takeover and
+1. Reconnect the phone, boot `shim/out/shim-boot-diagnostic.img`
+   (`68a649...`) with `fastboot boot`, and capture the shim's `DISP`/FDT
+   lines (photo/video). Watch the panel for 30 s without touching it (H2).
+2. Boot `shim/out/shim-boot-payload.img` (`2e2880...`) and follow
+   `ACCEPTANCE_TESTS.md` H3-H4: XNU entry, framebuffer takeover and
    serial/PANIC output. If it resets, record the last visible line and the
    reset reason; do not guess.
 3. If the SE7 firmware is present, test `sweettouchbus=1`; if not, the default

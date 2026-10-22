@@ -113,7 +113,7 @@ index 03defe6..62a7486 100644
 + * are the panel's and stay on from ABL; the only PMIC write is the touch
 + * load switch on PM6150 GPIO4 (sweet_spmi_write). Protocol as Google's
 + * fts_touch_s5 / mainline stmfts: reset pin, wait for CONTROLLER_READY,
-+ * scan mode active {0xa0, 0x00, 0x00}, then 8-byte events from 0x86.
++ * scan mode active {0xa0, 0x00, 0xff}, then 8-byte events from 0x86.
 + *
 + * Unlike the Xiaomi ABL, the Pixel ABL does not appear to load GENI
 + * firmware into SE7. When the firmware is missing the same controller is
@@ -427,7 +427,7 @@ index 03defe6..62a7486 100644
  	int err = touch_msg(addr, wide ? ptr : ptr + 1, wide ? 2u : 1u,
  	    NULL, 0, true);
  	if (err) {
-@@ -487,6 +755,227 @@ touch_focaltech(void)
+@@ -487,6 +755,228 @@ touch_focaltech(void)
  	return 0;
  }
  
@@ -461,14 +461,15 @@ index 03defe6..62a7486 100644
 +
 +/*
 + * ftsCore.c setScanMode(): the vendor driver aborts a stale flash access
-+ * ({0xfa,0x20,...}) and then selects the active scan mode with settings 0.
-+ * fts_resume() uses the same {0xa0, SCAN_MODE_ACTIVE, 0x00} triple.
++ * ({0xfa,0x20,...}) and then calls setScanMode(SCAN_MODE_ACTIVE, 0xff).
++ * The 0xff bitmask enables all scans; 0x00 is the vendor's sense-off value
++ * used on suspend, so it must not be used here.
 + */
 +static int
 +touch_ftm5_scan(void)
 +{
 +	static const uint8_t unlock[7] = {0xfa, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00};
-+	static const uint8_t scan[3] = {FTM5_SCAN_MODE, 0x00, 0x00};
++	static const uint8_t scan[3] = {FTM5_SCAN_MODE, 0x00, 0xff};
 +	int first = touch_msg(FTM5_ADDR, unlock, sizeof(unlock), NULL, 0, false);
 +	int err = touch_msg(FTM5_ADDR, scan, sizeof(scan), NULL, 0, false);
 +	printf("SWEET TOUCH: FTM5 scan mode active err=%d (unlock=%d)\n", err, first);

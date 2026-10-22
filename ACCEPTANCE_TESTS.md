@@ -1,9 +1,11 @@
 # Acceptance tests: Pixel 4a (sunfish)
 
-Status legend: `PASS` (observed on the phone), `FAIL`, `NOT RUN` (blocked),
-`N/A`. **H1 was observed on hardware on 2026-10-22 (red diagnostic screen);
-H2-H8 have not been run.** Do not mark a row PASS from a photo of a logo or
-from a kernel log alone; the evidence column says what is required.
+Status legend: `PASS` (observed on the phone, or reproduced offline for an
+offline-only test), `FAIL`, `NOT RUN` (blocked), `N/A`. **H1 was observed on
+hardware on 2026-10-22 (red diagnostic screen); H7 passed offline on
+2026-10-23 (two byte-identical full builds). H2-H6 and H8 have not been run.**
+Do not mark a row PASS from a photo of a logo or from a kernel log alone; the
+evidence column says what is required.
 
 ## Offline checks (already run)
 
@@ -108,17 +110,25 @@ has a stop condition.
 
 ### H7 — Reproducible build
 
-- Prerequisites: a clean checkout and the CI kernel.
+- Prerequisites: a clean checkout and a kernel from
+  `scripts/build-kernel-local.sh` or CI.
 - Procedure: run `scripts/build.sh --kernel ...` twice; compare SHA256 of
-  `Image`, `shim-boot.img`, ADT and payload. Re-run the CI workflow on the same
-  commit and compare the kernel hash.
-- Pass criteria: identical local artifacts; the CI kernel hash is recorded with
-  the run ID. The ADT/payload/shim have no timestamps and the cpio is
-  deterministic.
-- Evidence: `shasum -a 256` output for both runs and the CI run ID.
-- **Status: NOT RUN (the local kernel and full payload are built; repeating
-  the full payload build twice and comparing hashes is still pending, as is a
-  fresh CI run. The payload-less shim was built twice with the same hash).**
+  `Image`, `shim-boot.img`, ADT and payload. If the kernel came from CI,
+  record the workflow run ID and compare its kernel hash.
+- Pass criteria: identical local artifacts. The ADT/payload/shim have no
+  timestamps and the cpio is deterministic. `tools/mkadt.py` uses a fixed
+  `random-seed` by default so the ADT is byte-identical.
+- Evidence: after fixing the ADT seed, two consecutive builds produced
+  identical `e77d29244b469c165bec298728ba66c74fb76c54a90c935710c228cb96f6bac2`
+  (`payload.bin`), `2e28809ed12dda6255e952ea404210f44c4c289400b2d5a447d9ed74bf5f4402`
+  (`shim-boot.img`) and `c178ad67c8617f55c5d26b9bb493c6ad49347763e5ff0be4100e29a8063669e6`
+  (`sunfish.adt`); both comparisons were byte-for-byte (`cmp`). A pre-fix
+  build had a different ADT hash because `mkadt.py` called `os.urandom(64)`
+  for `/chosen/random-seed`; that is the bug H7 caught. The local kernel hash
+  is `e24fe3778f14b809d4a69465246f64f8accbbd55d21c021dbffbff92b2e8316c`.
+  A CI rerun on the final commit is optional because the local build is now
+  first-class; record its run ID if used.
+- **Status: PASS (local, offline, 2026-10-23).**
 
 ### H8 — Safety: no unintended partition writes
 

@@ -4,6 +4,7 @@
 Only what the early boot path actually reads (see NOTES.md); every MMIO
 address comes from the sweet live FDT. Usage:
     mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--device sweet|sunfish]
+                      [--random-seed]
 
 --device sunfish (Pixel 4a): same SM7150 MMIO map, 1080x2340 panel, and the
 root compatible "google,sunfish" that the kernel uses to pick the board's
@@ -51,6 +52,9 @@ QEMU_GICD, QEMU_GICR, QEMU_TIMEBASE = 0x08000000, 0x080a0000, 62500000
 QEMU_VTIMER_INTID = 27
 
 BOOT_MANIFEST_HASH = hashlib.sha384(b'sweet boot manifest').digest()
+# Deterministic bring-up seed so repeated builds are byte-identical.  Pass
+# --random-seed for a fresh 64-byte seed (not needed for a test device).
+FIXED_SEED = hashlib.sha512(b'ios-sweet adt seed v1').digest()
 
 # The iOS userland is the iPhone X (iPhone10,3 / D22AP) IPSW. MobileGestalt
 # derives product type, device class, home-button-less UI, artwork etc. from
@@ -93,7 +97,7 @@ def build(seed=None, qemu=False, highmem=False, device='sweet'):
     panic_base = phys_base + mem_size - PANIC_LOG_SIZE
     mem_size -= PANIC_LOG_SIZE
     gicd, gicr, timebase = (QEMU_GICD, QEMU_GICR, QEMU_TIMEBASE) if qemu else (GICD, GICR, TIMEBASE)
-    seed = seed if seed is not None else os.urandom(64)
+    seed = seed if seed is not None else FIXED_SEED
     phandle = iter(range(1, 1000))
     ph = lambda: ('AAPL,phandle', u32(next(phandle)))
 
@@ -258,7 +262,9 @@ if __name__ == '__main__':
     device = sys.argv[sys.argv.index('--device') + 1] if '--device' in sys.argv else 'sweet'
     if device not in DEVICES:
         raise SystemExit(f'unknown --device {device} (one of: {", ".join(DEVICES)})')
-    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv, device=device)
+    seed = os.urandom(64) if '--random-seed' in sys.argv else None
+    root = build(seed=seed, qemu='--qemu' in sys.argv,
+                 highmem='--highmem' in sys.argv, device=device)
     blob = adt.serialize(root)
     open(sys.argv[1], 'wb').write(blob)
     if '--dump' in sys.argv:

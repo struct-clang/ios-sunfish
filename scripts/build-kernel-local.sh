@@ -27,6 +27,7 @@ MACOS_VERSION=${MACOS_VERSION:-13.5}
 KERNEL_CONFIG=${KERNEL_CONFIG:-DEVELOPMENT}
 MACHINE_CONFIG=${MACHINE_CONFIG:-SWEET}
 KDK_URL=https://github.com/dortania/KdkSupportPkg/releases/download/22G74/Kernel_Debug_Kit_13.5_build_22G74.dmg
+KDK_SHA256=29866842eef039812888daea4176ce493be153b0d6d1b88f90753d69ea51b7d4
 DXB_REPO=https://github.com/blacktop/darwin-xnu-build
 DXB_SHA=663906528d1cd5ea8fde7de6f16de73db9511549
 
@@ -89,6 +90,12 @@ if [ ! -d "$KDKROOT/System/Library/KernelSupport" ]; then
 	echo "== Kernel Debug Kit 13.5 =="
 	[ -f "$WORK/KDK_13.5.dmg" ] || \
 		curl -L --fail --retry 2 -o "$WORK/KDK_13.5.dmg" "$KDK_URL"
+	actual=$(shasum -a 256 "$WORK/KDK_13.5.dmg" | awk '{print $1}')
+	[ "$actual" = "$KDK_SHA256" ] || {
+		echo "error: KDK SHA256 is $actual, expected $KDK_SHA256" >&2
+		echo "       remove $WORK/KDK_13.5.dmg and retry" >&2
+		exit 1
+	}
 	mnt="$WORK/kdk-mnt"
 	mkdir -p "$mnt"
 	hdiutil attach -readonly -nobrowse -mountpoint "$mnt" "$WORK/KDK_13.5.dmg" >/dev/null
