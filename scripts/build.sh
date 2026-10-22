@@ -66,6 +66,8 @@ if [ "$SHIM_ONLY" = 1 ]; then
 	echo "== diagnostic shim (no kernel payload) =="
 	(cd shim && DEVICE="$DEVICE" DTB="$DTB" ./build.sh)
 	scripts/check-artifacts.sh --shim-only --device "$DEVICE" --dtb "$DTB"
+	cp shim/out/shim-boot.img shim/out/shim-boot-diagnostic.img
+	echo "diagnostic image: shim/out/shim-boot-diagnostic.img"
 	exit 0
 fi
 
@@ -88,3 +90,17 @@ echo "== shim + boot image =="
 
 scripts/check-artifacts.sh --device "$DEVICE" --dtb "$DTB" \
 	--kernel "$KERNEL" --adt "$ADT" --payload "$PAYLOAD"
+
+# Stable names for the documented workflows: the normal payload becomes
+# shim-boot-payload.img, the payload-debug.bin payload becomes
+# shim-boot-debug.img.  Both are exact copies of shim-boot.img.
+case "$(basename "$PAYLOAD")" in
+payload-debug.bin)
+	cp shim/out/shim-boot.img shim/out/shim-boot-debug.img
+	echo "debug image: shim/out/shim-boot-debug.img"
+	;;
+*)
+	cp shim/out/shim-boot.img shim/out/shim-boot-payload.img
+	echo "payload image: shim/out/shim-boot-payload.img"
+	;;
+esac

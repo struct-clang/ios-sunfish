@@ -114,7 +114,8 @@ This produces `shim/out/shim-boot.img` with the stock v2 header fields
 (kernel `0x8000`, ramdisk `0x01000000`, tags `0x100`, DTB `0x1f00000`), an
 Image with `text_offset=0x80000`, an **LZ4 frame** kernel and an unsigned AVB
 hash footer padded to the 64 MiB boot partition. The check must print `ok` for
-every line, including `kernel is LZ4 frame` and `AVB footer present`.
+every line, including `kernel is LZ4 frame` and `AVB footer present`. The
+script also writes `shim/out/shim-boot-diagnostic.img`, an exact copy.
 
 Then boot it **temporarily**:
 
@@ -141,7 +142,9 @@ scripts/build.sh --kernel xnu/out/kernel.development.sweet
 
 This creates `shim/out/sunfish.adt` (`google,sunfish`, 1080x2340),
 `shim/out/payload.bin` (kernel + ADT + boot arguments) and the boot image with
-the payload as its ramdisk. The default boot arguments are:
+the payload as its ramdisk. It also writes `shim/out/shim-boot-payload.img`,
+an exact copy, so the later steps can name the full image explicitly. The
+default boot arguments are:
 
 ```
 debug=0xc serial=3 cpus=6 keepsyms=1 -enable_kprintf_spam -noprogress
@@ -161,7 +164,7 @@ log enabled is easier to diagnose. Build it with the same kernel, replacing
 scripts/build.sh --kernel xnu/out/kernel.development.sweet \
   --payload shim/out/payload-debug.bin \
   --cmdline 'debug=0xc serial=3 cpus=6 keepsyms=1 -enable_kprintf_spam -noprogress rd=ufsroot0 unentitled_ios_sim_launch=1 ignition_level=1 wdt_test=no_user_checkin ufsrw=1 rootrw=1 launchd_unsecure_cache=1 wdt=-1 sweetfb_noconsole=0 sweetfb_hz=30 sweetusb=2'
-cp shim/out/shim-boot.img shim/out/shim-boot-debug.img
+# -> shim/out/shim-boot-debug.img (a copy of shim-boot.img)
 scripts/build.sh --kernel xnu/out/kernel.development.sweet   # restore normal
 ```
 
