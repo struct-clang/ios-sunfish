@@ -4,7 +4,7 @@
 
 ## Verdict
 
-**Not accepted. The boot chain and the diagnostic display are now verified on a real Pixel 4a; SpringBoard and touch are not.** The payload-less shim built by `scripts/build.sh --shim-only` was accepted by `fastboot boot` and produced the red/yellow/white diagnostic screen on the internal panel on 2026-10-22. The XNU payload has not booted, the iOS root has not been flashed, and `ACCEPTANCE_TESTS.md` H2-H8 are still `NOT RUN`. The exact `DISP`/FDT lines are pending a photo; do not infer panel timings or touch from the screen colours alone.
+**Not accepted. The boot chain and the diagnostic display are now verified on a real Pixel 4a; SpringBoard and touch are not.** The payload-less shim built by `scripts/build.sh --shim-only` was accepted by `fastboot boot` and produced the red/yellow/white diagnostic screen on the internal panel on 2026-10-22. The full XNU payload (built kernel + sunfish ADT) is now built and passes every offline check, but it has not been booted; the iOS root has not been flashed. `ACCEPTANCE_TESTS.md` H2-H8 are still `NOT RUN`. The exact `DISP`/FDT lines are pending a photo; do not infer panel timings or touch from the screen colours alone.
 
 Do not treat a compiled kernel, a built boot image or a red diagnostic screen
 as proof of the port. Acceptance requires the six items in
@@ -42,13 +42,26 @@ All of this is reproducible with `scripts/build.sh` and
 | Repack of the stock `boot.img` with `tools/mkbootimg_v2.py` | byte-identical to stock except the avbtool release string (`1.3.0` vs `1.4.0`); the repacked image boots |
 | Sunfish ADT | 10092 bytes; root `D22AP | iPhone10,3 | google,sunfish | qcom,sm7150 | AppleARM`; fb 1080x2340, stride 4320 |
 | Device access | phone attached in fastboot, bootloader unlocked; `fastboot boot` of the stock, repacked-stock and frame-LZ4 shim images all accepted |
+| Full XNU kernel build | **yes**, Xcode 16.2 + extracted 13.5 KDK + pinned dxb; `kernel.development.sweet` 16777216 bytes, SHA256 `0562cca00b2f98c91e22f379c05064a12f73e5733f7fc3ac71bd9d01b1e90d86`; contains `google,sunfish` and all four FTM5 strings |
+| Full payload build | **yes**, 10 segments, entry `0xfffffe0007490488`, `payload.bin` 16628560 bytes; boot image SHA256 `fb61c5ef...` (see below); every `check-artifacts.sh` line passes |
 
-Artifact hashes from the offline build (payload-less shim, scratch DTB):
+The kernel was built locally with `scripts/build-kernel-local.sh` (same
+pinned dxb revision and patches as CI). This removes the macOS-14 CI runner
+from the critical path. The queued run `39827421032` was on the deprecated
+macOS-14 image; the workflow now targets `macos-15`.
+
+Artifact hashes from the offline build (payload-less diagnostic shim, scratch DTB):
 
 ```
 04093e0658a7209fbef75d8d5a1d0830b3a750d33f581cc900a5abe23c5ecee4  shim/out/Image
 c0023e4c1e0eb4420a0513547fd015e926727e34874f1cf9bb4f0cefe9713d1b  shim/out/Image.lz4
-68a6493af1c1f323e97afc13d5bed2a20f35d8b387950d9ba2fb6bd85b0e634a  shim/out/shim-boot.img
+68a6493af1c1f323e97afc13d5bed2a20f35d8b387950d9ba2fb6bd85b0e634a  shim/out/shim-boot.img  (diagnostic)
+```
+
+Full payload image (kernel + ADT + shim, the image to boot next):
+
+```
+fb61c5eff317992519cf44822ddb02c85e9de2c3bdd913625a6630f4bffc3e6a  shim/out/shim-boot.img  (full payload)
 ```
 
 The boot image is 67108864 bytes (the 64 MiB boot partition): LZ4 frame
@@ -61,14 +74,14 @@ the ADT changes; use `scripts/check-artifacts.sh` to print the current ones.
 
 ## What is blocked, and why
 
-1. **Kernel build.** The local machine has Xcode 16.2, whose `iig` emits
-   `IORPC.kernelContent`; xnu-8796 does not have it. The CI runner
-   (`macos-14`, Xcode 15) is the supported build path. The branch was pushed to
-   the fork and run `39827421032` was re-queued after a macOS-runner capacity
-   cancellation; there is no kernel artifact yet.
-2. **Hardware.** The boot chain and diagnostic display now run on the phone.
-   Touch and SpringBoard cannot be observed until the XNU payload boots and the
-   iOS root is present.
+1. **Kernel build: solved.** Xcode 16.2 builds xnu-8796 with the pinned dxb
+   revision, the extracted 13.5 KDK and `xnu/patches/`; the resulting kernel
+   is on disk. CI is optional and now uses `macos-15`; the old run
+   `39827421032` is irrelevant.
+2. **Hardware.** The boot chain and diagnostic display run on the phone, and
+   the full XNU payload image is built and offline-checked. The phone is
+   disconnected, so the payload has not been booted. Touch and SpringBoard
+   cannot be observed until it boots and the iOS root is present.
 3. **Root image.** The 16 GiB HFSX image from the iPhone X 16.7.16 IPSW is not
    on this machine (it lives on the Linux host used for the sweet port).
 4. **`0031`/`0041`.** Two pre-existing patches fail to apply in this tree.
@@ -79,16 +92,17 @@ the ADT changes; use `scripts/check-artifacts.sh` to print the current ones.
 
 ## Immediate next steps
 
-1. Finish the queued CI run; confirm in the log that `0082` applied and that
-   the binary contains `SWEET TOUCH: FTM5 ACK on bit-banged I2C`,
-   `SWEET TOUCH: selected ST FTM5` and `google,sunfish`.
-2. With the phone: capture the shim's `DISP`/FDT lines (photo/video) and watch
-   the panel for 30 s without touching it (H2).
-3. Build the payload with the CI kernel and the sunfish ADT, then boot it and
-   follow `ACCEPTANCE_TESTS.md` H3-H4.
-4. If the SE7 firmware is present, test `sweettouchbus=1`; if not, the default
+1. Reconnect the phone, boot `shim/out/shim-boot.img` (`fb61c5ef...`) with
+   `fastboot boot`, and capture the shim's `DISP`/FDT lines (photo/video).
+   Watch the panel for 30 s without touching it (H2).
+2. Follow `ACCEPTANCE_TESTS.md` H3-H4: XNU entry, framebuffer takeover and
+   serial/PANIC output. If it resets, record the last visible line and the
+   reset reason; do not guess.
+3. If the SE7 firmware is present, test `sweettouchbus=1`; if not, the default
    auto path must report the bit-banged ACK. If neither works, the log lines
    listed in `TROUBLESHOOTING.md` isolate power, reset, pad order and protocol.
+4. Flash the iOS root only after H1-H4 pass and the user confirms; then test
+   SpringBoard and touch (H5-H6).
 5. Only after SpringBoard and touch pass, update `README.md` to say "boots on
    sunfish".
 

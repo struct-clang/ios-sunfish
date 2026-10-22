@@ -17,7 +17,8 @@ It is not for the 4a 5G (`bramble`) and not for any other Pixel.
   image or a backup). It contains the device tree the shim needs.
 - Linux or macOS with `fastboot` and `adb` (Android platform-tools), Python 3,
   and an `aarch64` cross compiler (`scripts/setup-build-env.sh` installs it).
-- A GitHub account for the kernel build (XNU needs Xcode 15).
+- A GitHub account for the CI kernel build, or macOS with Xcode 16 for a local
+  build.
 - The iPhone X (iPhone10,3) iOS 16.7.16 (20H392) IPSW and a Linux machine to
   build the HFS+ root image (`tools/mkiosroot.sh`, see the README).
 - About an hour, and a USB cable that stays connected.
@@ -52,24 +53,42 @@ fastboot flashing unlock
 This wipes Android. **The scripts in this repository never unlock or erase
 anything on their own.**
 
-## 2. Build the kernel (CI)
+## 2. Build the kernel
 
-XNU 8796 cannot be built with Xcode 16. The workflow uses `macos-14` (Xcode
-15), fetches `xnu-8796.141.3`, applies `xnu/patches/*.patch` in order and
-produces `kernel.development.sweet`:
+Two equivalent paths produce `xnu/out/kernel.development.sweet`.
+
+### CI
+
+The workflow uses `macos-15` (Xcode 16), fetches `xnu-8796.141.3`, installs
+the 13.5 KDK, applies `xnu/patches/*.patch` in order and uploads
+`kernel.development.sweet`:
 
 ```sh
-git push origin sunfish-port
+git push fork sunfish-port
 gh workflow run xnu.yml -R <you>/ios-sunfish
 gh run watch
 gh run download <RUN_ID> -n xnu-kernel -D xnu/out
 ```
 
-Check the run log: patch `0082-sunfish-board-support.patch` must be listed as
-applied, and the "Check board support" step must find `google,sunfish`,
-`SWEET TOUCH: selected ST FTM5`, `SWEET TOUCH: PM6150 GPIO4` and
-`SWEET SPMI: write` in the binary. If the workflow skips `0031` or `0041`,
-read `PORTING_STATUS.md` before expecting a writable root.
+### Local macOS build
+
+Xcode 16.2 builds this tree (verified 2026-10-22); no GitHub runner is
+required. The script downloads the 13.5 KDK (~660 MiB), expands it into
+`.build/kernel` (no `sudo`, no system install), clones the pinned
+`blacktop/darwin-xnu-build` revision, copies the board patches and builds:
+
+```sh
+scripts/build-kernel-local.sh                 # DEVELOPMENT, SWEET
+# optional: WORK=/path/with/space scripts/build-kernel-local.sh
+```
+
+It finishes by printing the SHA256 and checking for `google,sunfish`,
+`SWEET TOUCH: selected ST FTM5`, `SWEET TOUCH: FTM5 ACK on bit-banged I2C`
+and `SWEET TOUCH: PM6150 GPIO4`.
+
+Check either build: patch `0082-sunfish-board-support.patch` must be listed
+as applied, and the board strings must be present. If the build skips `0031`
+or `0041`, read `PORTING_STATUS.md` before expecting a writable root.
 
 ## 3. Extract the stock DTB
 

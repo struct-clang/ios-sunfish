@@ -4,9 +4,10 @@
 #   scripts/build.sh --kernel xnu/out/kernel.development.sweet
 #   scripts/build.sh --shim-only                 # diagnostics, no payload
 #
-# The kernel binary comes from the GitHub Actions workflow (XNU cannot be
-# built with Xcode 16; see PORTING_STATUS.md). --shim-only builds the
-# payload-less image that only exercises the display and reports the FDT.
+# The kernel binary comes from the GitHub Actions workflow or from
+# scripts/build-kernel-local.sh (Xcode 16.2 with the extracted 13.5 KDK).
+# --shim-only builds the payload-less image that only exercises the display
+# and reports the FDT.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -72,7 +73,7 @@ fi
 	echo "error: kernel $KERNEL not found." >&2
 	echo "       Download it from the xnu workflow:" >&2
 	echo "       gh run download RUN_ID -n xnu-kernel -D xnu/out" >&2
-	echo "       The local Xcode 16 iig cannot build xnu-8796." >&2
+	echo "       or run scripts/build-kernel-local.sh on macOS with Xcode 16." >&2
 	exit 1
 }
 

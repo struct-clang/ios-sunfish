@@ -7,4 +7,5 @@ research/
 shim/out/
 xnu/out/
 xnu/out-*/
+.build/
 __pycache__/

@@ -34,9 +34,10 @@ env:
 
 jobs:
   build:
-    # macos-14 still ships Xcode 15.x: its iig matches the xnu-8796 IORPC ABI
-    # (Xcode 16's iig emits IORPC.kernelContent, which this xnu lacks)
-    runs-on: macos-14
+    # macos-14 is deprecated and its arm64 queue is capacity-starved. Xcode
+    # 16.2 builds this tree with the pinned dxb patches and the 13.5 KDK
+    # (verified locally on 2026-10-22), so use the current macOS-15 image.
+    runs-on: macos-15
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4

@@ -1,8 +1,9 @@
 # Porting notes: sunfish (Google Pixel 4a)
 
-Status (2026-10-22): **ported, not yet booted on hardware.** The shim builds for
-sunfish. The device tree generator and the kernel patch `0082` are written and
-pass an offline build, but no hardware test has run (see
+Status (2026-10-22): **ported, full XNU payload built, not yet booted on
+hardware.** The shim, the kernel (`0082`/`0083` applied) and the full payload
+pass the offline checks; the diagnostic shim has run on the phone. No XNU,
+SpringBoard or touch test has run (see
 [`ACCEPTANCE_TESTS.md`](../ACCEPTANCE_TESTS.md)). The first boot on the phone
 has to confirm the points in "To check on first boot".
 
@@ -58,6 +59,7 @@ python3 tools/unpack_bootv2.py backup/boot.img dtb/sunfish          # -> dtb/sun
 
 scripts/build.sh --shim-only            # diagnostics image, no kernel
 scripts/check-artifacts.sh --shim-only
+scripts/build-kernel-local.sh           # or download the CI xnu-kernel artifact
 scripts/build.sh --kernel xnu/out/kernel.development.sweet
 ```
 

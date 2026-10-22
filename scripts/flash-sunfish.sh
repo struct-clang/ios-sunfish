@@ -54,7 +54,8 @@ command -v fastboot >/dev/null 2>&1 || fail "fastboot not found (install Android
 [ -f "$IMAGE" ] || fail "$IMAGE is missing (run scripts/build.sh or scripts/build.sh --shim-only)"
 
 # --- artifact preflight (no phone needed) ----------------------------------
-scripts/check-artifacts.sh --shim-only --image "$IMAGE" --dtb "$DTB" >/dev/null \
+scripts/check-artifacts.sh --shim-only --device sunfish \
+	--image "$IMAGE" --dtb "$DTB" >/dev/null \
 	|| fail "artifact check failed; run scripts/check-artifacts.sh --image $IMAGE yourself to see why"
 
 # --- device preflight ------------------------------------------------------

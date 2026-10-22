@@ -1,8 +1,9 @@
 #!/bin/bash
 # Install everything needed to build the sunfish shim, ADT and payload.
 # Linux: Debian/Ubuntu apt or Fedora dnf. macOS: Homebrew.
-# The XNU kernel itself must be built by CI (Xcode 15 / macos-14); this script
-# only sets up the local cross toolchain and image tools.
+# The XNU kernel is built by CI (macos-15) or by scripts/build-kernel-local.sh
+# (macOS with Xcode 16); this script only sets up the local cross toolchain and
+# image tools.
 set -euo pipefail
 
 need() {

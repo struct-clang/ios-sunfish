@@ -4,7 +4,7 @@
 
 This is a port of [ios-sweet](https://github.com/dipa-studio/ios-sweet). That project runs Apple's open-source XNU kernel (xnu-8796, iOS 16 generation) with the **unmodified iOS 16.7.16 userland of the iPhone X** on the Redmi Note 10 Pro. The Pixel 4a (`sunfish`) uses the same Qualcomm SM7150 chip. Most of that work therefore carries over, and this repository adds what differs on the Pixel.
 
-> **Status (2026-10-22): the boot chain and the diagnostic display are verified on a real Pixel 4a; XNU, SpringBoard and touch are not.** `fastboot boot` accepts the 64 MiB LZ4-frame/AVB shim image and the panel shows the red shim diagnostics. The sunfish XNU payload and the iOS root have not been booted, so no SpringBoard or touch test has run. The first-boot checklist is in [`docs/SUNFISH.md`](docs/SUNFISH.md); see [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is verified and what is not.
+> **Status (2026-10-22): the boot chain and the diagnostic display are verified on a real Pixel 4a; XNU, SpringBoard and touch are not.** `fastboot boot` accepts the 64 MiB LZ4-frame/AVB shim image and the panel shows the red shim diagnostics. The full sunfish XNU payload is built and passes the offline checks, but it has not been booted and the iOS root has not been flashed, so no SpringBoard or touch test has run. The first-boot checklist is in [`docs/SUNFISH.md`](docs/SUNFISH.md); see [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is verified and what is not.
 
 > Experimental bring-up, not a usable phone OS. Apple's security model is mostly switched off. It installs into the `userdata` partition, so **it erases Android's user data**.
 
@@ -12,7 +12,7 @@ This is a port of [ios-sweet](https://github.com/dipa-studio/ios-sweet). That pr
 
 | Area | sweet (Redmi Note 10 Pro) | sunfish (Pixel 4a) |
 | --- | --- | --- |
-| Boot (`fastboot boot` shim → XNU) | works | shim accepted by the Pixel ABL and the red diagnostics rendered (H1); XNU payload not booted yet |
+| Boot (`fastboot boot` shim → XNU) | works | shim accepted by the Pixel ABL and the red diagnostics rendered (H1); full XNU payload built, not booted yet |
 | CPUs, memory, interrupts, timers | works (8 cores) | same SoC, same code; untested on sunfish |
 | UFS storage, iOS root in `userdata` | works | same SoC, same code; untested on sunfish |
 | Display | works (video-mode panel) | shim diagnostics work (command-mode panel + MDP autorefresh); iOS rendering untested |
