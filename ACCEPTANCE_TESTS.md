@@ -29,7 +29,8 @@ has a stop condition.
 
 - Prerequisites: unlocked bootloader, `shim/out/shim-boot.img` built with
   `scripts/build.sh --shim-only` (payload-less), stock DTB present.
-- Procedure: `scripts/flash-sunfish.sh` (temporary `fastboot boot`).
+- Procedure: `scripts/flash-sunfish.sh --image shim/out/shim-boot-diagnostic.img`
+  (temporary `fastboot boot`).
 - Pass criteria: within ~10 s a red screen shows `SHIM`, the FDT/`DISP` lines,
   and the text keeps appearing. No reboot into Android, no `FAILED` from
   fastboot.
@@ -45,7 +46,9 @@ has a stop condition.
 ### H2 — The shim keeps the command-mode panel refreshing
 
 - Prerequisites: H1 PASS.
-- Procedure: watch the shim screen for 30 s without touching the phone.
+- Procedure: boot `shim/out/shim-boot-diagnostic.img` with
+  `scripts/flash-sunfish.sh --image shim/out/shim-boot-diagnostic.img`, then
+  watch the screen for 30 s without touching the phone.
 - Pass criteria: the lines continue to appear and the panel does not freeze on
   the first frame (the pingpong autorefresh works). `DISP PP ... ar now=80000001`
   is printed and `DISP SRC` points at `0x9c000000` with size `0x09240438`.
@@ -59,9 +62,11 @@ has a stop condition.
   `xnu/out/kernel.development.sweet`; full image built with
   `scripts/build.sh --kernel ...`; TWRP (or `sweetusb=2`) for the log.
 - Procedure: boot `shim/out/shim-boot-debug.img` (`4558eb...`;
-  `sweetfb_noconsole=0 sweetusb=2`) for the log, or the normal image plus
-  TWRP; wait up to 10 min, then pull the persistent log. Return to the normal
-  `shim/out/shim-boot-payload.img` (`2e2880...`) for H4.
+  `sweetfb_noconsole=0 sweetusb=2`) with
+  `scripts/flash-sunfish.sh --image shim/out/shim-boot-debug.img --payload shim/out/payload-debug.bin`
+  for the log, or the normal image plus TWRP; wait up to 10 min, then pull the
+  persistent log. Return to the normal `shim/out/shim-boot-payload.img`
+  (`2e2880...`) for H4.
 - Pass criteria: the log contains the early XNU markers, `"userdata" on LUN 0`,
   `hfs: mounted`, launchd/backboardd lines. A panic is a FAIL; a hang with no
   new log line for 2 min is a FAIL.

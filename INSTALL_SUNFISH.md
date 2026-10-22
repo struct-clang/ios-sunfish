@@ -168,7 +168,16 @@ scripts/build.sh --kernel xnu/out/kernel.development.sweet   # restore normal
 The checked tree already has `shim/out/shim-boot-debug.img` (SHA256
 `4558eb...`). `sweetusb=2` needs the host receiver described in section 8.
 
-Boot it with `scripts/flash-sunfish.sh` (still non-destructive).
+Boot the debug image explicitly; the default `--payload` is the normal
+payload, so a debug image without `--payload` is rejected by the preflight:
+
+```sh
+scripts/flash-sunfish.sh --image shim/out/shim-boot-debug.img \
+  --payload shim/out/payload-debug.bin
+```
+
+The script now verifies that the image's ramdisk is byte-identical to the
+payload it checks. Nothing is written to flash (still `fastboot boot`).
 
 ## 6. Flash the iOS root (destructive)
 

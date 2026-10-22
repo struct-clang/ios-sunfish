@@ -21,6 +21,8 @@ cd "$ROOT"
 IMAGE=shim/out/shim-boot.img
 ROOT_IMG=
 DTB=${DTB:-dtb/sunfish/dtb}
+ADT=shim/out/sunfish.adt
+PAYLOAD=shim/out/payload.bin
 ASSUME_YES=0
 
 usage() {
@@ -28,6 +30,10 @@ usage() {
 usage: scripts/flash-sunfish.sh [options]
 
   --image PATH        boot image to boot (default shim/out/shim-boot.img)
+  --payload PATH      payload expected inside a full image
+                      (default shim/out/payload.bin; use the debug payload for
+                      shim-boot-debug.img)
+  --adt PATH          ADT to validate for a full image (default shim/out/sunfish.adt)
   --dtb PATH          stock DTB used by the artifact check (default dtb/sunfish/dtb)
   --flash-root IMG    DESTRUCTIVE: flash IMG to userdata first
   --yes               skip the "type ERASE USERDATA" prompt (still needs a tty)
@@ -40,6 +46,8 @@ EOF
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--image) IMAGE=$2; shift 2 ;;
+	--payload) PAYLOAD=$2; shift 2 ;;
+	--adt) ADT=$2; shift 2 ;;
 	--dtb) DTB=$2; shift 2 ;;
 	--flash-root) ROOT_IMG=$2; shift 2 ;;
 	--yes) ASSUME_YES=1; shift ;;
@@ -54,9 +62,29 @@ command -v fastboot >/dev/null 2>&1 || fail "fastboot not found (install Android
 [ -f "$IMAGE" ] || fail "$IMAGE is missing (run scripts/build.sh or scripts/build.sh --shim-only)"
 
 # --- artifact preflight (no phone needed) ----------------------------------
-scripts/check-artifacts.sh --shim-only --device sunfish \
-	--image "$IMAGE" --dtb "$DTB" >/dev/null \
-	|| fail "artifact check failed; run scripts/check-artifacts.sh --image $IMAGE yourself to see why"
+check_tmp=$(mktemp -d)
+trap 'rm -rf "$check_tmp"' EXIT
+python3 tools/unpack_bootv2.py "$IMAGE" "$check_tmp" >/dev/null \
+	|| fail "cannot unpack $IMAGE"
+if python3 - "$check_tmp/ramdisk" <<'PY'
+import sys
+try:
+    magic = open(sys.argv[1], 'rb').read(8)
+except OSError:
+    sys.exit(1)
+sys.exit(0 if magic == b'SWEETXNU' else 1)
+PY
+then
+	[ -f "$PAYLOAD" ] || fail "full image: payload $PAYLOAD is missing"
+	[ -f "$ADT" ] || fail "full image: ADT $ADT is missing"
+	check_args=(--device sunfish --image "$IMAGE" --dtb "$DTB" --adt "$ADT" --payload "$PAYLOAD")
+	echo "artifact: full payload image (ramdisk must match $PAYLOAD)"
+else
+	check_args=(--device sunfish --image "$IMAGE" --dtb "$DTB" --shim-only)
+	echo "artifact: diagnostic/shim-only image"
+fi
+scripts/check-artifacts.sh "${check_args[@]}" >/dev/null \
+	|| fail "artifact check failed; run scripts/check-artifacts.sh ${check_args[*]} yourself to see why"
 
 # --- device preflight ------------------------------------------------------
 devices=$(fastboot devices | awk 'NF {print $1}')

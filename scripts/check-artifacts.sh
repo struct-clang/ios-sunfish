@@ -170,6 +170,11 @@ cmd = b[0x48:0x48+608].split(b'\0')[0].decode(errors='replace')
 print(f'ok:   payload {len(b)} bytes, {nsegs} segments, entry={entry:#x}, ADT={adt_size} bytes')
 print(f'      cmdline: {cmd}')
 PY
+	# The image's ramdisk is the payload the shim will execute. A stale or
+	# mismatched POST payload must never pass while a different image is booted.
+	cmp -s "$tmp/ramdisk" "$PAYLOAD" \
+		|| fail "boot image ramdisk differs from $PAYLOAD"
+	ok "boot image ramdisk matches $PAYLOAD"
 fi
 
 if [ "$SHIM_ONLY" = 0 ] && [ -n "$KERNEL" ]; then

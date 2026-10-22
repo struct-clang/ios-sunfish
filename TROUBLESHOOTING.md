@@ -18,6 +18,7 @@ straight into Android without showing the red screen.
 | `Invalid boot image header` / `header version` | not header v2, bad page size | use `tools/mkbootimg_v2.py` through `shim/build.sh`; do not repack with an old `mkbootimg` |
 | `Failed to load/verify boot images` | the image is larger than ABL's fastboot buffer or the boot slot | use the payload-less shim first; the full payload is bigger |
 | `Error verifying the received boot.img: Unsupported` | the kernel is a raw arm64 Image or legacy-LZ4, or the image has no AVB footer | build through `scripts/build.sh` for sunfish: it emits an LZ4 **frame** kernel and an unsigned 64 MiB AVB hash footer. `scripts/check-artifacts.sh` must print `kernel is LZ4 frame` and `AVB footer present`; stock and repacked-stock images are accepted, so compare against those |
+| `FAIL: boot image ramdisk differs from ...` | the image and `--payload` file are from different builds (for example, the debug image with the normal payload) | rebuild, or pass the matching payload: `--payload shim/out/payload-debug.bin` for `shim-boot-debug.img` |
 | immediate reboot, no screen | wrong `kernel_addr`/`ramdisk_addr` or a non-arm64 Image | check the header fields; `scripts/check-artifacts.sh` compares them with the stock layout |
 | `device is locked` | bootloader locked | unlock it yourself; the scripts refuse to do it |
 
