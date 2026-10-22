@@ -137,7 +137,10 @@ has a stop condition.
   `kernel.development.sweet` SHA256
   `a0b7caa06f80bbac595f7e51ca451446f1157972ed2d68f7afe3a5cd694c0c3e`; its
   strings were checked manually. It is not used as the payload kernel, so
-  the local hashes above are authoritative.
+  the local hashes above are authoritative. A 2026-10-23 rebuild of all
+  three documented images (`shim-boot-diagnostic.img`,
+  `shim-boot-payload.img`, `shim-boot-debug.img`) reproduced
+  `68a6493a...`, `2e28809e...` and `4558eb51...` exactly.
 - **Status: PASS (local, offline, 2026-10-23).**
 
 ### H8 — Safety: no unintended partition writes
