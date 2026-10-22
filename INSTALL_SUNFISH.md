@@ -185,8 +185,12 @@ Build the HFSX image exactly as for sweet (iPhone X 16.7.16, 16 GiB, see the
 README), then:
 
 ```sh
-scripts/flash-sunfish.sh --flash-root /path/to/ios16-root.simg
+scripts/flash-sunfish.sh --image shim/out/shim-boot-payload.img \
+  --flash-root /path/to/ios16-root.simg
 ```
+
+`--flash-root` refuses a diagnostic/shim-only image: the first boot after the
+destructive flash must be a full XNU payload.
 
 The script checks the product, the unlocked state, the sparse image size
 against `partition-size:userdata`, and asks you to type `ERASE USERDATA`.

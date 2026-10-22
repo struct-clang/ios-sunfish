@@ -144,7 +144,8 @@ DEVICE=sunfish shim/build.sh shim/out/payload.bin          # -> shim/out/shim-bo
 
 ```sh
 scripts/flash-sunfish.sh                              # non-destructive: fastboot boot only
-scripts/flash-sunfish.sh --flash-root ios16-root.simg # DESTRUCTIVE: writes userdata
+scripts/flash-sunfish.sh --image shim/out/shim-boot-payload.img \
+  --flash-root ios16-root.simg                        # DESTRUCTIVE: writes userdata
 ```
 
 `--flash-root` checks the product (`sunfish`, not the 4a 5G), the unlocked state and that the sparse image fits `userdata`, then asks you to type `ERASE USERDATA`. Nothing else is written, and the script never unlocks the bootloader. The manual equivalent is `fastboot -S 512M flash userdata ios16-root.simg` followed by `fastboot boot shim/out/shim-boot.img`. For the first XNU boot, pass the debug artifacts explicitly: `--image shim/out/shim-boot-debug.img --payload shim/out/payload-debug.bin`; the preflight verifies that the image ramdisk and payload are byte-identical.

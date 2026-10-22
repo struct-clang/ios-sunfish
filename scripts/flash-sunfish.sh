@@ -75,16 +75,22 @@ except OSError:
 sys.exit(0 if magic == b'SWEETXNU' else 1)
 PY
 then
+	FULL_IMAGE=1
 	[ -f "$PAYLOAD" ] || fail "full image: payload $PAYLOAD is missing"
 	[ -f "$ADT" ] || fail "full image: ADT $ADT is missing"
 	check_args=(--device sunfish --image "$IMAGE" --dtb "$DTB" --adt "$ADT" --payload "$PAYLOAD")
 	echo "artifact: full payload image (ramdisk must match $PAYLOAD)"
 else
+	FULL_IMAGE=0
 	check_args=(--device sunfish --image "$IMAGE" --dtb "$DTB" --shim-only)
 	echo "artifact: diagnostic/shim-only image"
 fi
 scripts/check-artifacts.sh "${check_args[@]}" >/dev/null \
 	|| fail "artifact check failed; run scripts/check-artifacts.sh ${check_args[*]} yourself to see why"
+
+if [ -n "$ROOT_IMG" ] && [ "$FULL_IMAGE" = 0 ]; then
+	fail "refusing --flash-root with a diagnostic image; build the full payload and pass --image shim/out/shim-boot-payload.img"
+fi
 
 # --- device preflight ------------------------------------------------------
 devices=$(fastboot devices | awk 'NF {print $1}')
