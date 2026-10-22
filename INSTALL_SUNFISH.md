@@ -151,6 +151,21 @@ wdt=-1 sweetfb_noconsole=1 sweetfb_hz=30
 The root is taken from the internal UFS `userdata` partition, not from a RAM
 disk. Do not add `rd=md0` unless you built the root as a payload segment.
 
+For the first XNU boot, a debug payload with the framebuffer console and USB
+log enabled is easier to diagnose. Build it with the same kernel, replacing
+`sweetfb_noconsole=1` with `0` and appending `sweetusb=2`:
+
+```sh
+scripts/build.sh --kernel xnu/out/kernel.development.sweet \
+  --payload shim/out/payload-debug.bin \
+  --cmdline 'debug=0xc serial=3 cpus=6 keepsyms=1 -enable_kprintf_spam -noprogress rd=ufsroot0 unentitled_ios_sim_launch=1 ignition_level=1 wdt_test=no_user_checkin ufsrw=1 rootrw=1 launchd_unsecure_cache=1 wdt=-1 sweetfb_noconsole=0 sweetfb_hz=30 sweetusb=2'
+cp shim/out/shim-boot.img shim/out/shim-boot-debug.img
+scripts/build.sh --kernel xnu/out/kernel.development.sweet   # restore normal
+```
+
+The checked tree already has `shim/out/shim-boot-debug.img` (SHA256
+`4558eb...`). `sweetusb=2` needs the host receiver described in section 8.
+
 Boot it with `scripts/flash-sunfish.sh` (still non-destructive).
 
 ## 6. Flash the iOS root (destructive)

@@ -64,12 +64,20 @@ Full payload image (kernel + ADT + shim, the image to boot for H3+):
 
 ```
 e77d29244b469c165bec298728ba66c74fb76c54a90c935710c228cb96f6bac2  shim/out/payload.bin
-2e28809ed12dda6255e952ea404210f44c4c289400b2d5a447d9ed74bf5f4402  shim/out/shim-boot.img  (full payload)
+2e28809ed12dda6255e952ea404210f44c4c289400b2d5a447d9ed74bf5f4402  shim/out/shim-boot.img  (full payload, console muted)
 ```
 
-The local tree keeps both images: `shim/out/shim-boot-diagnostic.img`
-(`68a649...`) for H1/H2 and `shim/out/shim-boot-payload.img` (`2e2880...`)
-for H3+. `shim/out/shim-boot.img` is currently the full payload. The boot
+Debug payload for the first XNU boot (`sweetfb_noconsole=0`, `sweetusb=2`):
+
+```
+3d1466e1013a31dbc54d22a2b10220af3c5210a7cbfeb48f0c994cd8f92bda86  shim/out/payload-debug.bin
+4558eb51aac221ed9f7d5e9d417ef46ae2c09bc7622b14a6a3d502ca356003a2  shim/out/shim-boot-debug.img
+```
+
+The local tree keeps the images: `shim/out/shim-boot-diagnostic.img`
+(`68a649...`) for H1/H2, `shim/out/shim-boot-debug.img` (`4558eb...`) for
+H3 logging and `shim/out/shim-boot-payload.img` (`2e2880...`) for the normal
+H4+ boot. `shim/out/shim-boot.img` is currently the full payload. The boot
 image is 67108864 bytes (the 64 MiB boot partition): LZ4 frame kernel +
 unsigned AVB hash footer. `scripts/check-artifacts.sh` verifies the frame
 magic, decompresses it back to `shim/out/Image`, and verifies the AVB
@@ -104,10 +112,11 @@ needed.
 1. Reconnect the phone, boot `shim/out/shim-boot-diagnostic.img`
    (`68a649...`) with `fastboot boot`, and capture the shim's `DISP`/FDT
    lines (photo/video). Watch the panel for 30 s without touching it (H2).
-2. Boot `shim/out/shim-boot-payload.img` (`2e2880...`) and follow
-   `ACCEPTANCE_TESTS.md` H3-H4: XNU entry, framebuffer takeover and
-   serial/PANIC output. If it resets, record the last visible line and the
-   reset reason; do not guess.
+2. Boot `shim/out/shim-boot-debug.img` (`4558eb...`, `sweetusb=2`, console
+   on) for H3 and capture the XNU/UFS/launchd log; then boot
+   `shim/out/shim-boot-payload.img` (`2e2880...`, console muted) for H4.
+   If it resets, record the last visible line and the reset reason; do not
+   guess.
 3. If the SE7 firmware is present, test `sweettouchbus=1`; if not, the default
    auto path must report the bit-banged ACK. If neither works, the log lines
    listed in `TROUBLESHOOTING.md` isolate power, reset, pad order and protocol.

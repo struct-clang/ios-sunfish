@@ -58,8 +58,10 @@ has a stop condition.
   `scripts/build-kernel-local.sh` (or downloaded from CI) at
   `xnu/out/kernel.development.sweet`; full image built with
   `scripts/build.sh --kernel ...`; TWRP (or `sweetusb=2`) for the log.
-- Procedure: boot the full image (still `fastboot boot`), wait up to 10 min,
-  then pull the persistent log.
+- Procedure: boot `shim/out/shim-boot-debug.img` (`4558eb...`;
+  `sweetfb_noconsole=0 sweetusb=2`) for the log, or the normal image plus
+  TWRP; wait up to 10 min, then pull the persistent log. Return to the normal
+  `shim/out/shim-boot-payload.img` (`2e2880...`) for H4.
 - Pass criteria: the log contains the early XNU markers, `"userdata" on LUN 0`,
   `hfs: mounted`, launchd/backboardd lines. A panic is a FAIL; a hang with no
   new log line for 2 min is a FAIL.
