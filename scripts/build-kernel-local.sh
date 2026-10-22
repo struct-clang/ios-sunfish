@@ -178,7 +178,8 @@ echo
 echo "kernel: xnu/out/kernel.$cfg.$mach"
 shasum -a 256 "xnu/out/kernel.$cfg.$mach"
 for s in 'google,sunfish' 'SWEET TOUCH: selected ST FTM5' \
-	'SWEET TOUCH: FTM5 ACK on bit-banged I2C' 'SWEET TOUCH: PM6150 GPIO4'; do
+	'SWEET TOUCH: FTM5 ACK on bit-banged I2C' 'SWEET TOUCH: PM6150 GPIO4' \
+	'mounting dirty non-journaled root read-write'; do
 	if strings -a "xnu/out/kernel.$cfg.$mach" | grep -qF "$s"; then
 		echo "ok:   $s"
 	else

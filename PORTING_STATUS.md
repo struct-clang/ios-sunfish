@@ -33,7 +33,7 @@ All of this is reproducible with `scripts/build.sh` and
 
 | Check | Result |
 | --- | --- |
-| Patches `0001`-`0081` apply to a fresh `xnu-8796.141.3` tree | 79 of 81 applied; `0031` and `0041` fail exactly as before this work (pre-existing, unrelated to sunfish) |
+| Patches `0001`-`0081` apply to a fresh `xnu-8796.141.3` tree | **all 81 apply in the real dxb/CI build**, including `0031` (read-write root) and `0041` (HFS link notes), because dxb runs the `*.sh` staging scripts between patches. A manual `.patch`-only replay without staging skips `0031`/`0041` and is not representative; the built kernel contains `rootrw`, `mounting dirty non-journaled root read-write` and `sweet_hfs_link_note` |
 | New `0082-sunfish-board-support.patch` applies on top and reproduces the edited tree | yes (`git apply --check`, byte compare of the seven touched files) |
 | `sweet_touch.c` syntax check with the kernel headers | passes (only pre-existing implicit declarations of `delay`/`memcmp`) |
 | Shim cross-build with Homebrew `aarch64-elf-gcc` 16.2.0 | yes: `Image` 180224 bytes, LZ4 frame `Image.lz4` 8345 bytes, `shim-boot.img` 67108864 bytes |
@@ -101,11 +101,11 @@ needed.
    cannot be observed until it boots and the iOS root is present.
 3. **Root image.** The 16 GiB HFSX image from the iPhone X 16.7.16 IPSW is not
    on this machine (it lives on the Linux host used for the sweet port).
-4. **`0031`/`0041`.** Two pre-existing patches fail to apply in this tree.
-   They are not needed for the sunfish path, but a fresh CI build will skip
-   them (the workflow uses `git apply --check || skip`), so the kernel may lack
-   the read-write root and HFS link-note changes. Confirm in the CI log whether
-   they are applied before trusting a writable root.
+4. **No patch-order blocker.** The real dxb/CI build runs the staging scripts
+   and applies `0031` and `0041`; the earlier "skipped" observation came from
+   a patch-only replay that omitted those scripts. The built kernel contains
+   the read-write-root and HFS link-note code, so a writable root is not
+   blocked by patch order.
 
 ## Immediate next steps
 

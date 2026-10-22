@@ -11,7 +11,7 @@ evidence column says what is required.
 
 | ID | Check | Result | Evidence |
 | --- | --- | --- | --- |
-| O1 | Patch series applies to a fresh `xnu-8796.141.3` tree; the new `0082` reproduces the edited tree | PASS (0031/0041 pre-existing failures) | `git apply --check`, byte compare in the scratch tree |
+| O1 | Patch series applies to a fresh `xnu-8796.141.3` tree; the new `0082` reproduces the edited tree | PASS (all 83 in the real dxb/CI build, including `0031`/`0041`) | build log shows `Applying patch` for 0031/0041; the kernel contains `rootrw`, `mounting dirty non-journaled root read-write` and `sweet_hfs_link_note`. A patch-only replay without dxb's `.sh` staging skips 0031/0041 and is not representative |
 | O2 | `sweet_touch.c` parses with the kernel headers | PASS | `clang -fsyntax-only` (only pre-existing implicit `delay`) |
 | O3 | Shim cross-builds for sunfish; Image header and boot image header match the stock v2 layout | PASS | `scripts/check-artifacts.sh` output |
 | O4 | Stock `boot.img` repacked with `tools/mkbootimg_v2.py` round-trips kernel/ramdisk/DTB | PASS | byte-identical to stock except avbtool's release string (one byte); the repacked image boots |

@@ -135,9 +135,10 @@ jobs:
           [ -n "$k" ] || { echo "no kernel in out/"; exit 1; }
           strings -a "$k" > kernel-strings.txt
           missing=0
-          # 0082 (sunfish board support), 0083 (Adreno bring-up probes)
+          # 0031 (read-write root), 0041 (HFS link notes), 0082 (sunfish
+          # board support), 0083 (Adreno bring-up probes)
           for s in 'google,sunfish' 'SWEET TOUCH: selected ST FTM5' 'SWEET TOUCH: FTM5 ACK on bit-banged I2C' 'SWEET TOUCH: PM6150 GPIO4' 'SWEET SPMI: write' \
-              'SWEET GPU: step %u: done'; do
+              'SWEET GPU: step %u: done' 'mounting dirty non-journaled root read-write'; do
             if grep -qF "$s" kernel-strings.txt; then echo "ok:      $s"; else echo "MISSING: $s"; missing=1; fi
           done
           [ "$missing" = 0 ] || { echo "::error::board patches are missing from $k"; exit 1; }

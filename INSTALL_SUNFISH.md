@@ -87,8 +87,10 @@ It finishes by printing the SHA256 and checking for `google,sunfish`,
 and `SWEET TOUCH: PM6150 GPIO4`.
 
 Check either build: patch `0082-sunfish-board-support.patch` must be listed
-as applied, and the board strings must be present. If the build skips `0031`
-or `0041`, read `PORTING_STATUS.md` before expecting a writable root.
+as applied, and the board strings must be present. The real dxb build runs the
+`*.sh` staging scripts and applies `0031` (read-write root) and `0041` (HFS
+link notes); a `.patch`-only replay without staging can skip those two and is
+not representative.
 
 ## 3. Extract the stock DTB
 
