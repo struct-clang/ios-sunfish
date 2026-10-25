@@ -10,11 +10,10 @@
 # and the cryptex-only files, create the logd stores and the system keybag, then
 # convert the result to a raw image and (optionally) to a sparse .simg.
 #
-# Verified in pieces on macOS 14.8.8 (hdiutil HFSX create/convert, raw APFS
-# attach, tools/img2simg.py). NOT verified end to end yet: whether hdiutil
-# mounts the iOS 16 cryptex DMGs and decompresses LZBITMAP files is only known
-# once the real DMGs are present. If mount fails, use a Lima/QEMU Linux VM and
-# tools/mkiosroot.sh instead.
+# Verified on macOS 14.8.8: HFSX create/convert, raw APFS attach,
+# tools/img2simg.py, and the real 20H392 OS/SystemOS/AppOS mounts with
+# transparent LZBITMAP reads. The full privileged copy/conversion remains an
+# end-to-end test; if it fails, use a Lima/QEMU Linux VM and tools/mkiosroot.sh.
 #
 # Steps that change owner/group need root; run this from a terminal so sudo can
 # prompt. Nothing here touches the phone or any disk partition: it only reads

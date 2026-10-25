@@ -117,22 +117,26 @@ Without a Linux host, either install one in a VM (`brew install lima qemu`) and
 run the same commands there, or on macOS use:
 
 ```sh
-tools/mkiosroot-macos.sh OS.dmg SystemOS.dmg AppOS.dmg ios16-root.img 16G
+sudo tools/mkiosroot-macos.sh OS.dmg SystemOS.dmg AppOS.dmg ios16-root.img 16G
 ```
 
-`tools/mkiosroot-macos.sh` is the experimental macOS counterpart (same steps:
+`tools/mkiosroot-macos.sh` is the native macOS counterpart (same steps:
 `hdiutil` mounts, partitionless HFSX volume, `rsync -aH --numeric-ids` as root,
-`hdiutil convert -format UDTO`, then `tools/img2simg.py`). It is tested against
-synthetic images; whether macOS mounts the real cryptex DMGs and decompresses
-LZBITMAP files is only confirmed once the IPSW is present. If it fails, use the
-Lima VM path.
+`hdiutil convert -format UDTO`, then `tools/img2simg.py`). It is proven end to
+end against the real 20H392 OS/SystemOS/AppOS DMGs on macOS 14.8.8: their
+LZBITMAP files read uncompressed, the 16 GiB image mounts as iOS 16.7.16, and
+the sparse conversion verifies byte-for-byte. Run it from a terminal so `sudo`
+can prompt. If it fails, use the Lima VM path.
 
 `mkiosroot.sh` merges the OS volume and both cryptexes into one case-sensitive journaled HFS+ volume. `sweet-root-tweaks.py` applies the bring-up changes; its header explains each one. The device tree builder also needs `/product` from the real iPhone X device tree:
 
 ```sh
 python3 tools/remotezip.py IPSW_URL DeviceTree.d22ap.im4p research/ipsw-x/dt
-ipsw img4 im4p extract research/ipsw-x/dt/Firmware/all_flash/DeviceTree.d22ap.im4p -o research/ipsw-x/d22ap.adt
+python3 tools/adt.py unwrap research/ipsw-x/dt/Firmware/all_flash/DeviceTree.d22ap.im4p research/ipsw-x/d22ap.adt
 ```
+
+On macOS, `adt.py` falls back to the system `libcompression` LZFSE decoder if
+the optional `lzfse` command is absent.
 
 ### 3. Build the boot image
 

@@ -9,8 +9,10 @@ The root image (16 GiB, mostly zeros) is flashed as a sparse image so
 macOS build of the root image needs no Android SDK tools.
 
 Sparse format (AOSP system/core/libsparse): a 28-byte file header followed by
-12-byte chunk headers and their data. Zero runs become FILL chunks, everything
-else a RAW chunk. --verify decodes the output and compares it with the input.
+12-byte chunk headers and their data. Each chunk's total_sz includes the
+12-byte chunk header; libsparse rejects images that count only the data. Zero
+runs become FILL chunks, everything else a RAW chunk. --verify decodes the
+output and compares it with the input.
 """
 import argparse
 import hashlib
@@ -54,11 +56,14 @@ def convert(raw_path, out_path, block, verify):
                 part = chunks_data[off:off + block * MAX_CHUNK_BLOCKS]
                 n = len(part) // block
                 if is_zero:
-                    # FILL: chunk_sz counts blocks, total_sz is the 4-byte pattern
-                    fout.write(struct.pack("<HHII", CHUNK_FILL, 0, n, 4))
+                    # FILL: chunk_sz counts blocks; total_sz covers the header
+                    # and the 4-byte fill pattern (Android libsparse contract).
+                    fout.write(struct.pack("<HHII", CHUNK_FILL, 0, n,
+                                           CHUNK_HDR_SZ + 4))
                     fout.write(struct.pack("<I", 0))
                 else:
-                    fout.write(struct.pack("<HHII", CHUNK_RAW, 0, n, n * block))
+                    fout.write(struct.pack("<HHII", CHUNK_RAW, 0, n,
+                                           CHUNK_HDR_SZ + n * block))
                     fout.write(part)
                 total_chunks += 1
 
@@ -113,14 +118,17 @@ def check_sparse(raw_path, simg_path, block):
             ctype, _, nblocks, total_size = struct.unpack("<HHII", f.read(12))
             if nblocks > left:
                 sys.exit("verify: chunk overruns the image")
+            if total_size < chsz:
+                sys.exit("verify: chunk total_sz does not cover its header")
+            data_size = total_size - chsz
             if ctype == CHUNK_RAW:
-                if total_size != nblocks * block:
+                if data_size != nblocks * block:
                     sys.exit("verify: bad RAW chunk size")
-                digest.update(f.read(total_size))
+                digest.update(f.read(data_size))
             elif ctype == CHUNK_FILL:
-                if total_size != 4:
+                if data_size != 4:
                     sys.exit("verify: bad FILL chunk size")
-                fill = f.read(4) * (nblocks * block // 4)
+                fill = f.read(data_size) * (nblocks * block // 4)
                 digest.update(fill)
             else:
                 sys.exit(f"verify: unsupported chunk type 0x{ctype:x}")

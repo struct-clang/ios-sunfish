@@ -1,6 +1,7 @@
 # Porting status: Google Pixel 4a (sunfish)
 
-**Last updated: 2026-10-23. Branch: `sunfish-port`.**
+**Last updated: 2026-10-25. Branch: `sunfish-port`; fix commit `0446e99`.**
+
 
 ## Verdict
 
@@ -108,15 +109,17 @@ needed.
    `START STOP UNIT` and retry TUR. The fixed diagnostic is built
    (`2cfd6831...`) but its result is not yet observed; the XNU payload has
    still not been booted.
-3. **Root image.** The 16 GiB HFSX image is not on this machine and the repo
-   does not distribute it (no LFS, submodules, releases or image blobs in
-   history). The legitimate source is the Apple iPhone X 16.7.16 (20H392)
-   IPSW (SHA256 `ece1194f...8568fb`, 6,171,035,648 bytes), built with
-   `tools/mkiosroot.sh` + `tools/sweet-root-tweaks.py` on Linux. The user has
-   no `.simg` and no Linux host. A native macOS path exists in pieces
-   (`hdiutil` HFSX + `tools/img2simg.py`) but is untested; `brew install lima
-   qemu` would run the documented Linux path in a VM. SpringBoard and touch
-   stay blocked until either path produces the image.
+3. **Root image.** The 16 GiB HFSX image is not built yet and the repo does
+   not distribute it (no LFS, submodules, releases or image blobs in history).
+   The verified Apple iPhone X 16.7.16 (20H392) IPSW is in gitignored
+   `research/ipsw-x/` (SHA256 `ece1194f...8568fb`, 6,171,035,648 bytes), with
+   its OS/SystemOS/AppOS DMGs and D22AP ADT extracted. On macOS 14.8.8 all
+   three real images mount through `hdiutil`, LZBITMAP files transparently
+   read uncompressed, and `tools/adt.py` extracts the compressed DeviceTree
+   through the built-in `libcompression` fallback. The native builder still
+   needs the user's interactive sudo password for its root-owned copy/tweak
+   step; Lima/QEMU remains the fallback. SpringBoard and touch stay blocked
+   until the image is built and explicitly flashed.
 4. **No patch-order blocker.** The real dxb/CI build runs the staging scripts
    and applies `0031` and `0041`; the earlier "skipped" observation came from
    a patch-only replay that omitted those scripts. The built kernel contains
@@ -129,10 +132,11 @@ needed.
    (`2cfd6831...`) with `fastboot boot`; capture the `UFS START`/`UFS
    TUR`/`UFS CAP`/`UFS GPT` lines (photo/video). Watch the panel for 30 s
    without touching it (H2 video).
-2. Decide the root-image path with the user: download the 6.17 GB iPhone X
-   20H392 IPSW on this Mac and build natively (user runs the sudo steps), or
-   `brew install lima qemu` and run the documented Linux build in a VM. Then
-   fetch `DeviceTree.d22ap.im4p` for the ADT `/product` node.
+2. Run `tools/mkiosroot-macos.sh` against the extracted 20H392 DMGs from a
+   user terminal (`sudo` must prompt); it produces the raw 16 GiB image and
+   verified Android sparse image locally. The real D22AP `/product` input is
+   now extracted at `research/ipsw-x/d22ap.adt` and will be included by
+   `tools/mkadt.py`.
 3. Boot `shim/out/shim-boot-debug.img` (`4558eb...`, `sweetusb=2`, console
    on) for H3 and capture the XNU/UFS/launchd log; then boot
    `shim/out/shim-boot-payload.img` (`2e2880...`, console muted) for H4.

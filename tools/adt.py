@@ -7,7 +7,7 @@
 ADT layout: node = {u32 nprops, u32 nchildren, props..., children...};
 prop = {char name[32], u32 size (bit31 = placeholder flag), value padded to 4}.
 """
-import struct, subprocess, sys
+import ctypes, struct, subprocess, sys
 
 
 def der(buf, off):
@@ -36,8 +36,33 @@ def im4p_payload(buf):
             'encrypted': any(t == 0x04 for t, _ in items[4:])}
     payload = items[3][1]
     if payload[:4] == b'bvx2':
-        payload = subprocess.run(['lzfse', '-decode'], input=payload,
-                                 capture_output=True, check=True).stdout
+        try:
+            payload = subprocess.run(['lzfse', '-decode'], input=payload,
+                                     capture_output=True, check=True).stdout
+        except FileNotFoundError:
+            # macOS supplies LZFSE in libcompression even when the optional
+            # lzfse command-line utility is not installed.
+            try:
+                decode = ctypes.CDLL('libcompression.dylib').compression_decode_buffer
+            except OSError as exc:
+                raise RuntimeError('compressed IM4P needs lzfse') from exc
+            decode.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t,
+                               ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t,
+                               ctypes.c_void_p, ctypes.c_uint]
+            decode.restype = ctypes.c_size_t
+            src = (ctypes.c_ubyte * len(payload)).from_buffer_copy(payload)
+            size = max(65536, len(payload) * 4)
+            for _ in range(12):
+                dst = (ctypes.c_ubyte * size)()
+                written = decode(dst, size, src, len(payload), None, 0x801)
+                # A full destination buffer may be a truncated decode; retry
+                # with more space until the decoder leaves room at the end.
+                if written and written < size:
+                    payload = bytes(dst[:written])
+                    break
+                size *= 2
+            else:
+                raise RuntimeError('libcompression could not decode IM4P LZFSE payload')
     return payload, info
 
 

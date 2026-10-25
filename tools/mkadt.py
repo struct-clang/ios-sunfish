@@ -61,7 +61,7 @@ FIXED_SEED = hashlib.sha512(b'ios-sweet adt seed v1').digest()
 # the root identity and /product of the real D22AP device tree. That tree is
 # an Apple artifact (kept out of git): extract it from the IPSW with
 #   tools/remotezip.py URL DeviceTree.d22ap.im4p DIR
-#   ipsw img4 im4p extract DIR/Firmware/all_flash/DeviceTree.d22ap.im4p -o d22ap.adt
+#   python3 tools/adt.py unwrap DIR/Firmware/all_flash/DeviceTree.d22ap.im4p d22ap.adt
 D22AP_ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../research/ipsw-x/d22ap.adt')
 
 

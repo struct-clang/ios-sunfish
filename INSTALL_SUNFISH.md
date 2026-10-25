@@ -4,9 +4,10 @@ This is the end-to-end procedure for the **Pixel 4a 4G** (`sunfish`, SM7150).
 It is not for the 4a 5G (`bramble`) and not for any other Pixel.
 
 > **Read this first:** the boot chain and the red diagnostic screen have been
-> verified on a Pixel 4a (2026-10-22); XNU, SpringBoard and touch have not.
-> Everything from step 5 on is written for the first attempt and is expected to
-> need debugging. Every destructive step is marked; nothing is automatic. See
+> verified on a Pixel 4a (2026-10-22), and the iOS 16.7.16 root image has been
+> built and mounted locally (2026-10-23). XNU, SpringBoard and touch have **not**
+> run yet. The first XNU attempt is expected to need debugging. Every
+> destructive step is marked; nothing is automatic. See
 > [`PORTING_STATUS.md`](PORTING_STATUS.md) for what is and is not verified.
 
 ## What you need
@@ -20,13 +21,13 @@ It is not for the 4a 5G (`bramble`) and not for any other Pixel.
 - A GitHub account for the CI kernel build, or macOS with Xcode 16 for a local
   build.
 - The iPhone X (iPhone10,3) iOS 16.7.16 (20H392) **IPSW from Apple** (URL and
-  SHA256 in `README.md` §2) plus `tools/mkiosroot.sh`,
-  `tools/sweet-root-tweaks.py` and a Linux machine to build the HFS+ root
-  image. The image is **not** distributed with this repository (it contains
-  Apple's iOS userland), so it must be built from the IPSW. Without a Linux
-  host: build it in a Lima/QEMU VM (`brew install lima qemu`) or try the
-  native macOS path in §6 (untested end to end, needs your `sudo`).
-  `tools/img2simg.py` replaces the Linux `img2simg` for the final sparse
+  SHA256 in `README.md` §2) plus `tools/mkiosroot.sh` or
+  `tools/mkiosroot-macos.sh`, `tools/sweet-root-tweaks.py` and an HFS+ build
+  host. The image is **not** distributed with this repository (it contains
+  Apple's iOS userland), so build it from the IPSW with §6. The image is
+  already built on this Mac (`research/ipsw-x/`); on a clean machine, the
+  native macOS builder is proven against the real 20H392 DMGs.
+  `tools/img2simg.py` replaces the Linux `img2simg` for the sparse
   conversion.
 - About an hour, and a USB cable that stays connected.
 
@@ -194,27 +195,40 @@ payload it checks. Nothing is written to flash (still `fastboot boot`).
 The root image is not distributed with this repository; it is Apple's iPhone X
 userland. `README.md` §2 is the reference build (iPhone X 16.7.16 / 20H392
 IPSW, 16 GiB case-sensitive journaled HFS+ volume, `tools/mkiosroot.sh` +
-`tools/sweet-root-tweaks.py`). It needs a Linux host with `apfs-fuse`,
-`hfsprogs` and sudo. Without one:
+`tools/sweet-root-tweaks.py`). On macOS, the native builder is proven end to
+end:
 
-- **Linux VM (faithful path):** `brew install lima qemu`, start a VM, run the
-  documented Linux commands there, and let the shared directory carry the
-  DMGs in and `ios16-root.simg` out.
-- **Native macOS (experimental):** run
-  `tools/mkiosroot-macos.sh OS.dmg SystemOS.dmg AppOS.dmg ios16-root.img 16G`
-  from a terminal so `sudo` can prompt. It mounts the DMGs with `hdiutil`,
-  builds the partitionless HFSX volume, copies as root, converts with
-  `hdiutil convert -format UDTO` and runs `tools/img2simg.py`. It is tested
-  against synthetic images; the real unknowns are the APFS/cryptex DMG mounts
-  and LZBITMAP decompression. Check that `/System` files read uncompressed and
-  that the volume has no partition map (`HX` at offset 1024) before flashing.
-  If it fails, use the Lima VM path.
+```sh
+sudo ./tools/mkiosroot-macos.sh \
+  research/ipsw-x/087-86698-044.dmg \
+  research/ipsw-x/087-86593-047.dmg \
+  research/ipsw-x/087-86715-047.dmg \
+  research/ipsw-x/ios16-root-20H392.img 16G
+```
+
+The command mounts the DMGs with `hdiutil`, builds the partitionless HFSX
+volume, copies as root, converts with `hdiutil convert -format UDTO` and runs
+`tools/img2simg.py`. It reads only the extracted IPSW images and writes the
+two local files; it does not touch the phone. On the verified build:
+
+```
+raw   17,179,869,184 B  acba4ef7b99d7d1bb459810ebc12412e9fffdcc0435c7c6d55278443ed182341
+simg  11,648,661,764 B  f54033e0bb4d424bb645c2244b4d2ac153991610610c8ddcc16d8e55f3411cdd
+```
+
+`img2simg.py --verify` expands the sparse image and compares it byte-for-byte
+with the raw image. A read-only mount confirms `HX` at offset 1024 (no
+partition map), iOS 16.7.16, SpringBoard/`dyld` ARM64 Mach-Os, the cryptex
+symlink/hard links, launchd/CommCenter tweaks, containers and setup prefs.
+The 16 GiB image uses 11 GiB, so it fits the phone's ~117.6 GB `userdata`.
+If a future build fails, the Linux `tools/mkiosroot.sh` path or a Lima/QEMU VM
+remains the fallback.
 
 Then:
 
 ```sh
 scripts/flash-sunfish.sh --image shim/out/shim-boot-payload.img \
-  --flash-root /path/to/ios16-root.simg
+  --flash-root research/ipsw-x/ios16-root-20H392.simg
 ```
 
 `--flash-root` refuses a diagnostic/shim-only image: the first boot after the

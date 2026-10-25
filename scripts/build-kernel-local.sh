@@ -177,10 +177,13 @@ cp "$kernel" "xnu/out/kernel.$cfg.$mach"
 echo
 echo "kernel: xnu/out/kernel.$cfg.$mach"
 shasum -a 256 "xnu/out/kernel.$cfg.$mach"
+# grep -q closes the pipe early, so `strings | grep -q` can fail under
+# pipefail even when the string is present. Capture once, then grep the file.
+strings -a "xnu/out/kernel.$cfg.$mach" > "$WORK/kernel-strings.txt"
 for s in 'google,sunfish' 'SWEET TOUCH: selected ST FTM5' \
 	'SWEET TOUCH: FTM5 ACK on bit-banged I2C' 'SWEET TOUCH: PM6150 GPIO4' \
-	'mounting dirty non-journaled root read-write'; do
-	if strings -a "xnu/out/kernel.$cfg.$mach" | grep -qF "$s"; then
+	'mounting dirty non-journaled root read-write' 'command 0x%02x failed'; do
+	if grep -qF -- "$s" "$WORK/kernel-strings.txt"; then
 		echo "ok:   $s"
 	else
 		echo "MISSING: $s" >&2
