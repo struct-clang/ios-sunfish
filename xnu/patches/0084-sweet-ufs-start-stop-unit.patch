@@ -1,0 +1,39 @@
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -250,8 +250,16 @@
+ 
+ 	uint32_t ocs = utrd->dw2 & 0xff;
+ 	if (ocs || ucd->resp[0] != 0x21 || ucd->resp[6] || ucd->resp[7]) {
+-		printf("SWEET UFS: command 0x%02x failed: ocs 0x%x upiu 0x%x response 0x%x status 0x%x\n",
+-		    cdb[0], ocs, ucd->resp[0], ucd->resp[6], ucd->resp[7]);
++		uint32_t sense = 0;
++		if (ucd->resp[7] == 2) {
++			uint32_t len = (uint32_t)ucd->resp[32] << 8 | ucd->resp[33];
++			if (len >= 14) {
++				sense = (uint32_t)(ucd->resp[34 + 2] & 0xf) << 16 |
++				    (uint32_t)ucd->resp[34 + 12] << 8 | ucd->resp[34 + 13];
++			}
++		}
++		printf("SWEET UFS: command 0x%02x failed: ocs 0x%x upiu 0x%x response 0x%x status 0x%x sense 0x%x\n",
++		    cdb[0], ocs, ucd->resp[0], ucd->resp[6], ucd->resp[7], sense);
+ 		return EIO;
+ 	}
+ 	return 0;
+@@ -628,6 +636,16 @@
+ 		static const uint8_t tur[6] = { 0x00 };
+ 		/* The first command after the bootloader may report a unit attention. */
+ 		for (int i = 0; i < 3 && (error = ufs_scsi(tur, sizeof(tur), 0, false)); i++) {
++		}
++		if (error) {
++			/*
++			 * Pixel 4a: TUR reports NOT READY / INITIALIZING
++			 * COMMAND REQUIRED (2/04/02) until START STOP UNIT.
++			 */
++			static const uint8_t start[6] = { 0x1b, 0, 0, 0, 0x01, 0 };
++			(void)ufs_scsi(start, sizeof(start), 0, false);
++			for (int i = 0; i < 3 && (error = ufs_scsi(tur, sizeof(tur), 0, false)); i++) {
++			}
+ 		}
+ 	}
+ 	if (!error) {
